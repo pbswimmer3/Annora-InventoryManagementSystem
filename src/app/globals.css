@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
