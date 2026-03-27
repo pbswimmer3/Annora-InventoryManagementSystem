@@ -4,8 +4,26 @@
   .no-print {
     display: none !important;
   }
+
   body {
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Only show the barcode label when printing */
+  #barcode-label {
+    display: block !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    padding: 8px !important;
+    width: 2in !important;
+    page-break-inside: avoid;
+  }
+
+  #barcode-label svg {
+    width: 100% !important;
+    height: auto !important;
   }
 }

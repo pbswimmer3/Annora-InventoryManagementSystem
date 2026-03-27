@@ -89,7 +89,6 @@ export default function CheckoutPage() {
   async function handleSell(item: InventoryItem) {
     if (item.quantity <= 0) return;
 
-    // Last item confirmation
     if (item.quantity === 1) {
       setConfirmItem(item);
       return;
@@ -107,7 +106,6 @@ export default function CheckoutPage() {
     const now = new Date().toISOString();
     const previousQuantity = item.quantity;
 
-    // Clear existing undo
     if (undo) clearTimeout(undo.timer);
 
     // Optimistic update
@@ -119,7 +117,6 @@ export default function CheckoutPage() {
       )
     );
 
-    // Set undo timer
     const timer = setTimeout(() => setUndo(null), 5000);
     setUndo({ itemId: item.itemId, previousQuantity, timer });
 
@@ -134,7 +131,6 @@ export default function CheckoutPage() {
       );
       if (!res.ok) {
         setSyncError("Changes couldn't be saved — retrying...");
-        // Auto-retry once
         setTimeout(async () => {
           try {
             const retry = await fetch(
@@ -162,97 +158,137 @@ export default function CheckoutPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600" />
+        <p className="text-gray-500 mt-4">Loading inventory...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={refetch}
-          className="bg-indigo-600 text-white px-6 py-3 rounded-lg min-h-[44px] text-lg"
-        >
-          Retry
-        </button>
+      <div className="text-center py-16">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-sm mx-auto">
+          <p className="text-4xl mb-3">!</p>
+          <p className="text-red-700 font-medium mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Checkout</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Checkout</h1>
 
       {syncError && (
-        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg p-3 mb-4">
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-xl p-4 mb-4 shadow-sm">
           {syncError}
         </div>
       )}
 
-      <input
-        ref={searchRef}
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Scan barcode or type to search..."
-        className="w-full border-2 border-indigo-300 rounded-lg px-4 py-4 min-h-[56px] text-xl mb-6 focus:border-indigo-500 focus:outline-none"
-        autoFocus
-      />
+      <div className="relative mb-6">
+        <input
+          ref={searchRef}
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Scan barcode or type to search..."
+          className="w-full border-2 border-purple-200 rounded-2xl px-5 py-4 min-h-[56px] text-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-100 focus:outline-none bg-white shadow-sm transition-all"
+          autoFocus
+        />
+      </div>
+
+      {!search.trim() && (
+        <div className="text-center py-12">
+          <p className="text-5xl mb-3 opacity-40">&#x1F50D;</p>
+          <p className="text-gray-400 text-lg">
+            Scan a barcode or type an item name
+          </p>
+        </div>
+      )}
 
       {search.trim() && results.length === 0 && (
-        <p className="text-gray-500 text-center py-8">
-          No items found for &quot;{search}&quot;
-        </p>
+        <div className="text-center py-12">
+          <p className="text-5xl mb-3 opacity-40">&#x1F6AB;</p>
+          <p className="text-gray-400 text-lg">
+            No items found for &quot;{search}&quot;
+          </p>
+        </div>
       )}
 
       <div className="space-y-3">
         {results.map((item) => {
           const outOfStock = item.quantity <= 0;
+          const lowStock = item.quantity === 1;
           return (
             <div
               key={item.itemId}
-              className={`bg-white border rounded-lg p-4 ${
+              className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${
                 outOfStock
-                  ? "border-gray-200 opacity-60"
-                  : "border-gray-300"
+                  ? "border-gray-200 opacity-50"
+                  : lowStock
+                  ? "border-red-200"
+                  : "border-gray-200 hover:border-gray-300 hover:shadow-md"
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-lg">{item.name}</p>
-                  <p className="text-sm text-gray-500 font-mono">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-bold text-lg text-gray-800 truncate">
+                      {item.name}
+                    </p>
+                    {lowStock && !outOfStock && (
+                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">
+                        Last one
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 font-mono truncate">
                     {item.itemId}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {item.size} · {item.color} · {item.category}
-                  </p>
-                  <p className="text-sm mt-1">
-                    <span className="font-medium">Qty:</span>{" "}
+                  <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-500">
+                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">
+                      {item.size}
+                    </span>
+                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">
+                      {item.color}
+                    </span>
+                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">
+                      {item.category}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1.5">
+                    <span className="text-gray-500">In stock:</span>{" "}
                     <span
-                      className={
-                        item.quantity <= 1
-                          ? "text-red-600 font-bold"
-                          : "text-green-700"
-                      }
+                      className={`font-bold ${
+                        outOfStock
+                          ? "text-gray-400"
+                          : lowStock
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
                     >
                       {item.quantity}
                     </span>
                   </p>
                 </div>
                 {outOfStock ? (
-                  <span className="bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-sm font-medium min-h-[44px] flex items-center">
+                  <span className="bg-gray-100 text-gray-400 px-4 py-3 rounded-xl text-sm font-semibold min-h-[44px] flex items-center">
                     Out of Stock
                   </span>
                 ) : (
                   <button
                     onClick={() => handleSell(item)}
                     disabled={selling === item.itemId}
-                    className="bg-red-500 text-white px-5 py-3 rounded-lg min-h-[44px] text-lg font-medium disabled:opacity-50 whitespace-nowrap"
+                    className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-5 py-3 rounded-xl min-h-[44px] text-lg font-semibold disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg hover:from-red-600 hover:to-pink-600 transition-all"
                   >
-                    {selling === item.itemId ? "..." : "Mark as Sold"}
+                    {selling === item.itemId ? "..." : "Sell"}
                   </button>
                 )}
               </div>
@@ -263,23 +299,28 @@ export default function CheckoutPage() {
 
       {/* Last-item confirmation dialog */}
       {confirmItem && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-xl font-bold mb-2">Last One in Stock</h3>
-            <p className="text-gray-600 mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="text-center mb-4">
+              <p className="text-4xl mb-2">&#9888;&#65039;</p>
+              <h3 className="text-xl font-bold text-gray-800">
+                Last One in Stock
+              </h3>
+            </div>
+            <p className="text-gray-600 text-center mb-6">
               This is the last <strong>{confirmItem.name}</strong> in stock.
               Mark as sold?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmItem(null)}
-                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg min-h-[44px] text-lg"
+                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => performSell(confirmItem)}
-                className="flex-1 bg-red-500 text-white py-3 rounded-lg min-h-[44px] text-lg font-medium"
+                className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 rounded-xl min-h-[44px] text-lg font-semibold shadow-md hover:from-red-600 hover:to-pink-600 transition-all"
               >
                 Yes, Sell It
               </button>
@@ -290,11 +331,13 @@ export default function CheckoutPage() {
 
       {/* Undo toast */}
       {undo && (
-        <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto bg-gray-800 text-white rounded-lg p-4 flex items-center justify-between shadow-lg z-50">
-          <span>Item sold</span>
+        <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto bg-gray-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-2xl z-50">
+          <span className="text-sm">
+            &#10003; Item marked as sold
+          </span>
           <button
             onClick={() => doUndo(undo)}
-            className="bg-white text-gray-800 px-4 py-2 rounded-lg min-h-[44px] font-medium"
+            className="bg-white text-gray-900 px-5 py-2 rounded-xl min-h-[44px] font-semibold hover:bg-gray-100 transition-colors"
           >
             Undo
           </button>

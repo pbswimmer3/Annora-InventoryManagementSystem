@@ -3,7 +3,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Boutique Inventory",
+  title: "Annora Boutique — Inventory",
   description: "Indian Clothing Inventory Management",
 };
 
@@ -14,9 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 min-h-screen no-print">
+      <body className="bg-gradient-to-br from-orange-50 via-white to-pink-50 min-h-screen">
         <Nav />
-        <main className="max-w-2xl mx-auto px-4 py-6">{children}</main>
+        <main className="no-print max-w-2xl mx-auto px-4 py-6">{children}</main>
       </body>
     </html>
   );

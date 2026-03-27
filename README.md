@@ -72,6 +72,29 @@ Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to 
 3. Add `GOOGLE_SHEET_ID` and `GOOGLE_SERVICE_ACCOUNT_KEY` as environment variables in the Vercel project settings
 4. Deploy
 
+## Using a USB Barcode Scanner
+
+A USB barcode scanner works exactly like a keyboard — when you scan a barcode, the scanner **types the barcode text into whatever field is focused** and then presses Enter.
+
+**How it works with this app:**
+
+1. Go to the **Checkout** tab — the search field is automatically focused
+2. Point the USB barcode scanner at the item's barcode label and scan it
+3. The scanner types the Item ID (e.g. `RED-KASHMIR-SILK-SARI-MD`) into the search field
+4. The app instantly finds and displays the matching item
+5. Tap **"Sell"** to mark it as sold
+
+**No special software or drivers are needed.** Just plug the USB scanner into the laptop. Most USB barcode scanners work out of the box on Windows, Mac, and Chromebooks.
+
+**Recommended scanners:** Any USB barcode scanner that supports Code128 format (nearly all of them do). Budget options ($15-25) from brands like Tera, Netum, or Inateck work great.
+
+**Printing barcode labels:**
+
+1. Add a new item on the **Add Stock** tab
+2. After adding, click **"Print Label"**
+3. In the print dialog, set paper size to match your label sheets (standard 2" x 1" labels work well)
+4. Print and stick the label on the item's tag
+
 ## Project Structure
 
 ```
