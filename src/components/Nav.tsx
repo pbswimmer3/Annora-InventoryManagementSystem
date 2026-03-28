@@ -12,11 +12,11 @@ export default function Nav() {
   const pathname = usePathname();
 
   return (
-    <nav className="no-print bg-gradient-to-r from-orange-600 via-pink-600 to-purple-600 sticky top-0 z-10 shadow-lg">
+    <nav className="no-print bg-black sticky top-0 z-10 shadow-lg border-b border-amber-700/40">
       <div className="max-w-2xl mx-auto px-2">
-        <p className="text-center text-white/80 text-xs pt-2 tracking-widest uppercase">
-          Annora Boutique
-        </p>
+        <div className="flex items-center justify-center pt-2 pb-1">
+          <img src="/annora-logo.jpg" alt="Annora" className="h-10 rounded" />
+        </div>
         <div className="flex">
           {tabs.map((tab) => {
             const active = pathname === tab.href;
@@ -26,8 +26,8 @@ export default function Nav() {
                 href={tab.href}
                 className={`flex-1 text-center py-3 pb-4 text-lg font-medium min-h-[56px] flex items-center justify-center gap-2 transition-all ${
                   active
-                    ? "text-white border-b-3 border-white"
-                    : "text-white/60 hover:text-white/90"
+                    ? "text-amber-400 border-b-3 border-amber-400"
+                    : "text-gray-400 hover:text-amber-300"
                 }`}
               >
                 <span className={`text-xl ${active ? "scale-110" : ""} transition-transform`}>

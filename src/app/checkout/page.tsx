@@ -17,7 +17,7 @@ function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) 
     <img
       src={url}
       alt="Item photo"
-      className={`${size} object-cover rounded-lg border border-gray-200`}
+      className={`${size} object-cover rounded-lg border border-amber-700/30`}
     />
   );
 }
@@ -161,7 +161,7 @@ export default function CheckoutPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600" />
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-900 border-t-amber-400" />
         <p className="text-gray-500 mt-4">Loading inventory...</p>
       </div>
     );
@@ -170,10 +170,10 @@ export default function CheckoutPage() {
   if (error) {
     return (
       <div className="text-center py-16">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-sm mx-auto">
+        <div className="bg-red-950/50 border border-red-800 rounded-2xl p-8 max-w-sm mx-auto">
           <p className="text-4xl mb-3">!</p>
-          <p className="text-red-700 font-medium mb-4">{error}</p>
-          <button onClick={refetch} className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors">
+          <p className="text-red-400 font-medium mb-4">{error}</p>
+          <button onClick={refetch} className="bg-red-700 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-600 transition-colors">
             Try Again
           </button>
         </div>
@@ -183,10 +183,10 @@ export default function CheckoutPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Checkout</h1>
+      <h1 className="text-2xl font-bold text-amber-400 mb-6">Checkout</h1>
 
       {syncError && (
-        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-xl p-4 mb-4 shadow-sm">{syncError}</div>
+        <div className="bg-yellow-950/40 border border-yellow-700 text-yellow-400 rounded-xl p-4 mb-4 shadow-sm">{syncError}</div>
       )}
 
       <div className="relative mb-6">
@@ -196,22 +196,22 @@ export default function CheckoutPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Scan barcode or type to search..."
-          className="w-full border-2 border-purple-200 rounded-2xl px-5 py-4 min-h-[56px] text-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-100 focus:outline-none bg-white shadow-sm transition-all"
+          className="w-full border-2 border-amber-700/40 rounded-2xl px-5 py-4 min-h-[56px] text-xl bg-black text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none shadow-sm transition-all"
           autoFocus
         />
       </div>
 
       {!search.trim() && (
         <div className="text-center py-12">
-          <p className="text-5xl mb-3 opacity-40">&#x1F50D;</p>
-          <p className="text-gray-400 text-lg">Scan a barcode or type an item name</p>
+          <p className="text-5xl mb-3 opacity-30">&#x1F50D;</p>
+          <p className="text-gray-500 text-lg">Scan a barcode or type an item name</p>
         </div>
       )}
 
       {search.trim() && results.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-5xl mb-3 opacity-40">&#x1F6AB;</p>
-          <p className="text-gray-400 text-lg">No items found for &quot;{search}&quot;</p>
+          <p className="text-5xl mb-3 opacity-30">&#x1F6AB;</p>
+          <p className="text-gray-500 text-lg">No items found for &quot;{search}&quot;</p>
         </div>
       )}
 
@@ -222,42 +222,42 @@ export default function CheckoutPage() {
           return (
             <div
               key={item.itemId}
-              className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${
-                outOfStock ? "border-gray-200 opacity-50" : lowStock ? "border-red-200" : "border-gray-200 hover:border-gray-300 hover:shadow-md"
+              className={`bg-gray-900 border rounded-2xl p-4 shadow-sm transition-all ${
+                outOfStock ? "border-gray-800 opacity-50" : lowStock ? "border-red-800" : "border-amber-700/20 hover:border-amber-700/40 hover:shadow-md"
               }`}
             >
               <div className="flex items-center gap-3">
                 {item.photoUrl && <ItemPhoto url={item.photoUrl} size="h-16 w-16" />}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="font-bold text-lg text-gray-800 truncate">{item.name}</p>
+                    <p className="font-bold text-lg text-gray-100 truncate">{item.name}</p>
                     {lowStock && !outOfStock && (
-                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">Last one</span>
+                      <span className="text-[10px] font-bold bg-red-950 text-red-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">Last one</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 font-mono truncate">{item.itemId}</p>
+                  <p className="text-xs text-gray-600 font-mono truncate">{item.itemId}</p>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">{item.size}</span>
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">{item.color}</span>
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">{item.category}</span>
+                    <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full text-xs">{item.size}</span>
+                    <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full text-xs">{item.color}</span>
+                    <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full text-xs">{item.category}</span>
                   </div>
                   <div className="flex items-center gap-3 mt-1.5 text-sm">
                     <span>
                       <span className="text-gray-500">Stock:</span>{" "}
-                      <span className={`font-bold ${outOfStock ? "text-gray-400" : lowStock ? "text-red-600" : "text-green-600"}`}>{item.quantity}</span>
+                      <span className={`font-bold ${outOfStock ? "text-gray-600" : lowStock ? "text-red-400" : "text-green-400"}`}>{item.quantity}</span>
                     </span>
                     {item.salePrice > 0 && (
-                      <span className="text-gray-400">Last sold: ${item.salePrice.toFixed(2)}</span>
+                      <span className="text-gray-500">Last sold: ${item.salePrice.toFixed(2)}</span>
                     )}
                   </div>
                 </div>
                 {outOfStock ? (
-                  <span className="bg-gray-100 text-gray-400 px-4 py-3 rounded-xl text-sm font-semibold min-h-[44px] flex items-center">Out of Stock</span>
+                  <span className="bg-gray-800 text-gray-500 px-4 py-3 rounded-xl text-sm font-semibold min-h-[44px] flex items-center">Out of Stock</span>
                 ) : (
                   <button
                     onClick={() => handleSellClick(item)}
                     disabled={selling === item.itemId}
-                    className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-5 py-3 rounded-xl min-h-[44px] text-lg font-semibold disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg hover:from-red-600 hover:to-pink-600 transition-all"
+                    className="bg-amber-600 hover:bg-amber-500 text-black px-5 py-3 rounded-xl min-h-[44px] text-lg font-bold disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-amber-500/20 transition-all"
                   >
                     {selling === item.itemId ? "..." : "Sell"}
                   </button>
@@ -270,9 +270,9 @@ export default function CheckoutPage() {
 
       {/* Sell confirmation dialog with photo + sale price */}
       {sellTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-amber-700/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-amber-400 mb-3 text-center">
               {sellTarget.quantity === 1 ? "Last One in Stock!" : "Confirm Sale"}
             </h3>
 
@@ -282,17 +282,17 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <p className="text-center font-semibold text-gray-700">{sellTarget.name}</p>
+            <p className="text-center font-semibold text-gray-200">{sellTarget.name}</p>
             <p className="text-center text-sm text-gray-500 mb-1">
               {sellTarget.size} &middot; {sellTarget.color} &middot; {sellTarget.category}
             </p>
             {sellTarget.quantity === 1 && (
-              <p className="text-center text-sm text-red-600 font-medium mb-2">This is the last one in stock!</p>
+              <p className="text-center text-sm text-red-400 font-medium mb-2">This is the last one in stock!</p>
             )}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-600 mb-1.5">Sale Price *</label>
+              <label className="block text-sm font-semibold text-gray-400 mb-1.5">Sale Price *</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">$</span>
                 <input
                   type="number"
                   min={0}
@@ -301,22 +301,22 @@ export default function CheckoutPage() {
                   onChange={(e) => { setSalePrice(e.target.value); setSalePriceError(""); }}
                   placeholder="0.00"
                   autoFocus
-                  className="w-full border border-gray-300 rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-xl text-center focus:border-purple-400 focus:ring-2 focus:ring-purple-100 focus:outline-none transition-colors"
+                  className="w-full border border-gray-700 bg-black rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-xl text-center text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors"
                 />
               </div>
-              {salePriceError && <p className="text-red-500 text-sm mt-1">{salePriceError}</p>}
+              {salePriceError && <p className="text-red-400 text-sm mt-1">{salePriceError}</p>}
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setSellTarget(null)}
-                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-200 transition-colors"
+                className="flex-1 bg-gray-800 text-gray-300 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmSell}
-                className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 rounded-xl min-h-[44px] text-lg font-semibold shadow-md hover:from-red-600 hover:to-pink-600 transition-all"
+                className="flex-1 bg-amber-600 hover:bg-amber-500 text-black py-3 rounded-xl min-h-[44px] text-lg font-bold shadow-md hover:shadow-amber-500/20 transition-all"
               >
                 Sell
               </button>
@@ -327,9 +327,9 @@ export default function CheckoutPage() {
 
       {/* Undo toast */}
       {undo && (
-        <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto bg-gray-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-2xl z-50">
-          <span className="text-sm">&#10003; Item marked as sold</span>
-          <button onClick={() => doUndo(undo)} className="bg-white text-gray-900 px-5 py-2 rounded-xl min-h-[44px] font-semibold hover:bg-gray-100 transition-colors">
+        <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto bg-black border border-amber-700/40 text-white rounded-2xl p-4 flex items-center justify-between shadow-2xl z-50">
+          <span className="text-sm text-amber-300">&#10003; Item marked as sold</span>
+          <button onClick={() => doUndo(undo)} className="bg-amber-600 text-black px-5 py-2 rounded-xl min-h-[44px] font-bold hover:bg-amber-500 transition-colors">
             Undo
           </button>
         </div>

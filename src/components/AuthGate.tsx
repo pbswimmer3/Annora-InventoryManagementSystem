@@ -49,8 +49,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // Still loading
   if (authed === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-orange-200 border-t-orange-600" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-amber-900 border-t-amber-400" />
       </div>
     );
   }
@@ -62,21 +62,19 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Login screen
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-block bg-gradient-to-r from-orange-600 via-pink-600 to-purple-600 text-white px-6 py-3 rounded-2xl mb-4">
-            <h1 className="text-2xl font-bold tracking-wide">Annora Boutique</h1>
-          </div>
-          <p className="text-gray-500">Enter password to continue</p>
+          <img src="/annora-logo.jpg" alt="Annora" className="h-24 mx-auto rounded-lg mb-4" />
+          <p className="text-gray-400">Enter password to continue</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-4"
+          className="bg-gray-950 rounded-2xl shadow-lg border border-amber-700/30 p-6 space-y-4"
         >
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-center text-sm">
+            <div className="bg-red-950/50 border border-red-800 text-red-400 rounded-xl p-3 text-center text-sm">
               {error}
             </div>
           )}
@@ -88,13 +86,13 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             placeholder="Password"
             autoFocus
             required
-            className="w-full border border-gray-300 rounded-xl px-4 py-4 min-h-[56px] text-xl text-center focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
+            className="w-full border border-amber-700/40 bg-black rounded-xl px-4 py-4 min-h-[56px] text-xl text-center text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors"
           />
 
           <button
             type="submit"
             disabled={checking}
-            className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold disabled:opacity-50 shadow-lg hover:shadow-xl transition-all"
+            className="w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold disabled:opacity-50 shadow-lg hover:shadow-amber-500/20 transition-all"
           >
             {checking ? "Checking..." : "Enter"}
           </button>

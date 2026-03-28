@@ -47,7 +47,7 @@ function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) 
     <img
       src={url}
       alt="Item photo"
-      className={`${size} object-cover rounded-lg border border-gray-200`}
+      className={`${size} object-cover rounded-lg border border-amber-700/30`}
     />
   );
 }
@@ -222,7 +222,7 @@ export default function AddStockPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-200 border-t-orange-600" />
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-900 border-t-amber-400" />
         <p className="text-gray-500 mt-4">Loading inventory...</p>
       </div>
     );
@@ -231,10 +231,10 @@ export default function AddStockPage() {
   if (error) {
     return (
       <div className="text-center py-16">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-sm mx-auto">
+        <div className="bg-red-950/50 border border-red-800 rounded-2xl p-8 max-w-sm mx-auto">
           <p className="text-4xl mb-3">!</p>
-          <p className="text-red-700 font-medium mb-4">{error}</p>
-          <button onClick={refetch} className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors">
+          <p className="text-red-400 font-medium mb-4">{error}</p>
+          <button onClick={refetch} className="bg-red-700 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-600 transition-colors">
             Try Again
           </button>
         </div>
@@ -254,10 +254,10 @@ export default function AddStockPage() {
             document.body
           )}
         <div className="text-center py-8">
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-8 max-w-sm mx-auto mb-6">
+          <div className="bg-green-950/40 border border-green-800 rounded-2xl p-8 max-w-sm mx-auto mb-6">
             <p className="text-4xl mb-2">&#10003;</p>
-            <h2 className="text-2xl font-bold text-green-700 mb-1">Item Added!</h2>
-            <p className="text-green-600">{successItem.name}</p>
+            <h2 className="text-2xl font-bold text-green-400 mb-1">Item Added!</h2>
+            <p className="text-green-300">{successItem.name}</p>
             {successItem.photoUrl && (
               <div className="mt-3 flex justify-center">
                 <ItemPhoto url={successItem.photoUrl} size="h-24 w-24" />
@@ -266,15 +266,15 @@ export default function AddStockPage() {
           </div>
           <div className="mb-4">
             <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; x 1&quot;)</p>
-            <div className="inline-block border-2 border-dashed border-gray-300 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1in" }}>
+            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1in" }}>
               <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
             </div>
           </div>
           <div className="space-y-3 max-w-sm mx-auto">
-            <button onClick={() => window.print()} className="block w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold shadow-lg hover:shadow-xl transition-shadow">
+            <button onClick={() => window.print()} className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all">
               Print Label
             </button>
-            <button onClick={() => setSuccessItem(null)} className="block w-full bg-white text-gray-700 border border-gray-300 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-50 transition-colors">
+            <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
               Add Another Item
             </button>
           </div>
@@ -285,36 +285,36 @@ export default function AddStockPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Add Stock</h1>
+      <h1 className="text-2xl font-bold text-amber-400 mb-6">Add Stock</h1>
 
       {/* Restock confirmation dialog with photo */}
       {restockConfirm && restockTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">Confirm Restock</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-amber-700/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-amber-400 mb-3 text-center">Confirm Restock</h3>
             {restockTarget.photoUrl && (
               <div className="flex justify-center mb-3">
                 <ItemPhoto url={restockTarget.photoUrl} size="h-32 w-32" />
               </div>
             )}
-            <p className="text-center text-gray-700 font-semibold">{restockTarget.name}</p>
-            <p className="text-center text-sm text-gray-500 mb-1">
+            <p className="text-center text-gray-200 font-semibold">{restockTarget.name}</p>
+            <p className="text-center text-sm text-gray-400 mb-1">
               {restockTarget.size} &middot; {restockTarget.color} &middot; {restockTarget.category}
             </p>
-            <p className="text-center text-sm text-gray-500 mb-4">
-              Current stock: <strong>{restockTarget.quantity}</strong> &rarr; Adding <strong>{restockQty}</strong> = <strong>{restockTarget.quantity + restockQty}</strong>
+            <p className="text-center text-sm text-gray-400 mb-4">
+              Current stock: <strong className="text-gray-200">{restockTarget.quantity}</strong> &rarr; Adding <strong className="text-gray-200">{restockQty}</strong> = <strong className="text-amber-400">{restockTarget.quantity + restockQty}</strong>
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setRestockConfirm(false)}
-                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-200 transition-colors"
+                className="flex-1 bg-gray-800 text-gray-300 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRestock}
                 disabled={restocking}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-xl min-h-[44px] text-lg font-semibold shadow-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-amber-600 text-black py-3 rounded-xl min-h-[44px] text-lg font-bold shadow-md hover:bg-amber-500 transition-colors disabled:opacity-50"
               >
                 {restocking ? "Restocking..." : "Confirm"}
               </button>
@@ -325,36 +325,36 @@ export default function AddStockPage() {
 
       {/* Restock panel (inline) */}
       {restockTarget && !restockConfirm && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-6 shadow-sm">
+        <div className="bg-amber-950/30 border border-amber-700/40 rounded-2xl p-5 mb-6 shadow-sm">
           <div className="flex gap-4 items-start">
             {restockTarget.photoUrl && <ItemPhoto url={restockTarget.photoUrl} />}
             <div className="flex-1">
-              <h3 className="font-bold text-blue-800 text-lg mb-1">Restocking: {restockTarget.name}</h3>
-              <p className="text-sm text-blue-600 mb-4">
-                {restockTarget.itemId} &middot; {restockTarget.size} &middot; {restockTarget.color} &middot; Currently <strong>{restockTarget.quantity}</strong> in stock
+              <h3 className="font-bold text-amber-400 text-lg mb-1">Restocking: {restockTarget.name}</h3>
+              <p className="text-sm text-amber-200/60 mb-4">
+                {restockTarget.itemId} &middot; {restockTarget.size} &middot; {restockTarget.color} &middot; Currently <strong className="text-amber-300">{restockTarget.quantity}</strong> in stock
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 mb-4">
-            <label className="text-sm font-medium text-blue-800">Quantity to add:</label>
+            <label className="text-sm font-medium text-amber-300">Quantity to add:</label>
             <input
               type="number"
               min={1}
               value={restockQty}
               onChange={(e) => setRestockQty(Math.max(1, +e.target.value))}
-              className="border border-blue-300 rounded-xl px-3 py-2 w-24 min-h-[44px] text-lg text-center bg-white"
+              className="border border-amber-700/40 bg-black rounded-xl px-3 py-2 w-24 min-h-[44px] text-lg text-center text-white"
             />
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setRestockConfirm(true)}
-              className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-blue-700 transition-colors"
+              className="flex-1 bg-amber-600 text-black px-4 py-3 rounded-xl min-h-[44px] text-lg font-bold shadow-md hover:bg-amber-500 transition-colors"
             >
               Restock
             </button>
             <button
               onClick={() => { setRestockTarget(null); setRestockConfirm(false); }}
-              className="bg-white text-gray-600 border border-gray-300 px-4 py-3 rounded-xl min-h-[44px] hover:bg-gray-50 transition-colors"
+              className="bg-gray-800 text-gray-300 border border-gray-700 px-4 py-3 rounded-xl min-h-[44px] hover:bg-gray-700 transition-colors"
             >
               Cancel
             </button>
@@ -363,65 +363,65 @@ export default function AddStockPage() {
       )}
 
       {submitError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 shadow-sm">{submitError}</div>
+        <div className="bg-red-950/50 border border-red-800 text-red-400 rounded-xl p-4 mb-4 shadow-sm">{submitError}</div>
       )}
 
-      <form onSubmit={handleSubmitNew} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <form onSubmit={handleSubmitNew} className="bg-gray-900 rounded-2xl shadow-sm border border-amber-700/20 p-5 space-y-4">
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Name *</label>
+          <label className="block text-sm font-semibold text-gray-400 mb-1.5">Name *</label>
           <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kashmir Silk"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+            className="w-full border border-gray-700 bg-black rounded-xl px-4 py-3 min-h-[44px] text-lg text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Category *</label>
+            <label className="block text-sm font-semibold text-gray-400 mb-1.5">Category *</label>
             <select value={category} onChange={(e) => setCategory(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors">
+              className="w-full border border-gray-700 bg-black rounded-xl px-4 py-3 min-h-[44px] text-lg text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors">
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Size *</label>
+            <label className="block text-sm font-semibold text-gray-400 mb-1.5">Size *</label>
             <select value={size} onChange={(e) => setSize(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors">
+              className="w-full border border-gray-700 bg-black rounded-xl px-4 py-3 min-h-[44px] text-lg text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors">
               {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Color *</label>
+          <label className="block text-sm font-semibold text-gray-400 mb-1.5">Color *</label>
           <input type="text" required value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. Red"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+            className="w-full border border-gray-700 bg-black rounded-xl px-4 py-3 min-h-[44px] text-lg text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Material <span className="text-gray-400 font-normal">(optional)</span></label>
+          <label className="block text-sm font-semibold text-gray-400 mb-1.5">Material <span className="text-gray-600 font-normal">(optional)</span></label>
           <input type="text" value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Silk, Cotton"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+            className="w-full border border-gray-700 bg-black rounded-xl px-4 py-3 min-h-[44px] text-lg text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Quantity</label>
+            <label className="block text-sm font-semibold text-gray-400 mb-1.5">Quantity</label>
             <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(1, +e.target.value))}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+              className="w-full border border-gray-700 bg-black rounded-xl px-4 py-3 min-h-[44px] text-lg text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Supplier Price *</label>
+            <label className="block text-sm font-semibold text-gray-400 mb-1.5">Supplier Price *</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">&#8377;</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">&#8377;</span>
               <input type="number" required min={0} step="0.01" value={supplierPrice} onChange={(e) => setSupplierPrice(e.target.value)}
                 placeholder="0.00"
-                className="w-full border border-gray-300 rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+                className="w-full border border-gray-700 bg-black rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-lg text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
             </div>
           </div>
         </div>
 
         {/* Photo capture */}
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Photo <span className="text-gray-400 font-normal">(optional)</span></label>
+          <label className="block text-sm font-semibold text-gray-400 mb-1.5">Photo <span className="text-gray-600 font-normal">(optional)</span></label>
           <input
             ref={fileInputRef}
             type="file"
@@ -434,15 +434,15 @@ export default function AddStockPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="bg-gray-100 text-gray-700 px-4 py-3 rounded-xl min-h-[44px] text-sm font-medium hover:bg-gray-200 transition-colors border border-gray-200"
+              className="bg-gray-800 text-gray-300 px-4 py-3 rounded-xl min-h-[44px] text-sm font-medium hover:bg-gray-700 transition-colors border border-gray-700"
             >
               {photoFile ? "Change Photo" : "Take Photo"}
             </button>
             {photoPreview && (
               <div className="flex items-center gap-2">
-                <img src={photoPreview} alt="Preview" className="h-12 w-12 object-cover rounded-lg border border-gray-200" />
+                <img src={photoPreview} alt="Preview" className="h-12 w-12 object-cover rounded-lg border border-amber-700/30" />
                 <button type="button" onClick={() => { setPhotoFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                  className="text-red-500 text-sm font-medium hover:text-red-700">Remove</button>
+                  className="text-red-400 text-sm font-medium hover:text-red-300">Remove</button>
               </div>
             )}
           </div>
@@ -451,7 +451,7 @@ export default function AddStockPage() {
         <button
           type="submit"
           disabled={submitting || uploading}
-          className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold disabled:opacity-50 shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-pink-600 transition-all"
+          className="w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold disabled:opacity-50 shadow-lg hover:shadow-amber-500/20 transition-all"
         >
           {uploading ? "Uploading photo..." : submitting ? "Adding..." : "Add New Item"}
         </button>
@@ -460,21 +460,21 @@ export default function AddStockPage() {
       {/* Fuzzy match suggestions */}
       {matches.length > 0 && !restockTarget && (
         <div className="mt-6">
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-sm font-semibold text-amber-800 mb-3">Similar items already in stock — restock instead?</p>
+          <div className="bg-amber-950/30 border border-amber-700/40 rounded-2xl p-4 shadow-sm">
+            <p className="text-sm font-semibold text-amber-400 mb-3">Similar items already in stock — restock instead?</p>
             <div className="space-y-2">
               {matches.map((m) => (
-                <div key={m.item.itemId} className="bg-white border border-amber-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                <div key={m.item.itemId} className="bg-gray-900 border border-amber-700/20 rounded-xl p-4 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     {m.item.photoUrl && <ItemPhoto url={m.item.photoUrl} size="h-14 w-14" />}
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-800">{m.item.name}</p>
+                      <p className="font-semibold text-gray-200">{m.item.name}</p>
                       <p className="text-sm text-gray-500 truncate">{m.item.size} &middot; {m.item.color} &middot; {m.item.category}</p>
-                      <p className="text-sm text-gray-500">Qty: <strong>{m.item.quantity}</strong></p>
+                      <p className="text-sm text-gray-500">Qty: <strong className="text-gray-300">{m.item.quantity}</strong></p>
                     </div>
                   </div>
                   <button type="button" onClick={() => { setRestockTarget(m.item); setRestockQty(1); setRestockConfirm(false); }}
-                    className="ml-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl min-h-[44px] text-sm font-semibold whitespace-nowrap shadow-md hover:bg-amber-600 transition-colors">
+                    className="ml-3 bg-amber-600 text-black px-4 py-2.5 rounded-xl min-h-[44px] text-sm font-bold whitespace-nowrap shadow-md hover:bg-amber-500 transition-colors">
                     Restock This
                   </button>
                 </div>

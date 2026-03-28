@@ -1,25 +1,26 @@
-# Indian Clothing Boutique — Inventory System
+# Annora Boutique — Inventory System
 
-A lightweight inventory management system for a small Indian clothing boutique, built with Next.js and Google Sheets as the database.
+A lightweight inventory management system for Annora Boutique, built with Next.js and Google Sheets as the database. Branded in black and gold.
 
 ## Features
 
 - **Add Stock** — Add new items or restock existing ones with fuzzy duplicate detection
-- **Supplier Price Tracking** — Mandatory supplier cost (in ₹ rupees) recorded for every item
-- **Item Photos** — Take a photo of each item from your phone's camera; photos are stored in Google Drive and shown during restock and checkout
+- **Supplier Price Tracking** — Mandatory supplier cost (in rupees) recorded for every item; encoded into the barcode and hidden from checkout screens
+- **Item Photos** — Take a photo of each item from your phone's camera; photos are stored in Google Drive (via OAuth2) and shown during restock and checkout
 - **Checkout with Sale Price** — Scan barcodes or search to sell items; every sale requires entering the sale price (in $ USD), with undo support
 - **Barcode Labels** — Generate and print Code128 barcode labels sized for 2" x 1" thermal label printers, with on-screen print preview
 - **Touch-Friendly** — Designed for tablet/phone use with large tap targets (44px+ minimum)
 - **Password Protected** — Simple password gate to keep the site private
 - **Activity Log** — Every add, restock, sell, and undo is logged to a "Log" sheet tab with timestamps
 - **Daily Backups** — Automatic daily backup of the Inventory sheet via Vercel Cron
+- **Annora Branding** — Black and gold theme with the Annora logo throughout
 
 ## Tech Stack
 
 - Next.js (App Router) with TypeScript
-- Google Sheets as database (via `googleapis`)
-- Google Drive for item photo storage (via `googleapis`, same service account)
-- Tailwind CSS for styling
+- Google Sheets as database (via `googleapis` service account)
+- Google Drive for item photo storage (via `googleapis` OAuth2 — service accounts have no Drive storage quota)
+- Tailwind CSS for styling (black and gold theme)
 - JsBarcode for Code128 barcode generation
 - Fuse.js for fuzzy search
 
@@ -57,21 +58,26 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 
 ### 3. Set Up OAuth2 for Google Drive (for photo uploads)
 
-Service accounts have no Drive storage quota, so photo uploads use OAuth2 with a real Google account.
+Service accounts have no Drive storage quota, so photo uploads use OAuth2 with a real Google account. Photos are stored in that account's Drive and count against its 15GB free quota.
 
 1. In Google Cloud Console, go to **APIs & Services > Credentials**
 2. Click **Create Credentials > OAuth client ID**
 3. Choose **Web application** as the type
 4. Add `http://localhost:3333` as an **Authorized redirect URI**
 5. Copy the **Client ID** and **Client Secret**
-6. Run the setup script to get a refresh token:
+6. Configure the **OAuth consent screen** (APIs & Services > OAuth consent screen):
+   - Choose **External** user type
+   - Fill in the app name (e.g. "Annora-IMS")
+   - Add the Google account email as a test user
+   - **Publish the app** to make refresh tokens permanent (otherwise they expire after 7 days)
+7. Run the setup script to get a refresh token:
 
 ```bash
 node scripts/get-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>
 ```
 
-7. A browser window opens — log in with the Google account where you want photos stored and approve access
-8. The script prints your `GOOGLE_REFRESH_TOKEN` — copy it
+8. A browser window opens — log in with the Google account where you want photos stored and approve access
+9. The script prints your `GOOGLE_REFRESH_TOKEN` — copy it
 
 Photos are stored in an `Annora-Inventory-Photos` folder automatically created in that Google account's Drive.
 
@@ -124,7 +130,7 @@ The daily backup cron job is configured in `vercel.json` and runs automatically 
 
 ### Add Stock Flow
 
-1. Fill in the item details: Name, Category, Size, Color, Material, Quantity, and **Supplier Price** (in ₹ rupees, mandatory)
+1. Fill in the item details: Name, Category, Size, Color, Material, Quantity, and **Supplier Price** (in rupees, mandatory)
 2. Optionally tap **"Take Photo"** to snap a picture of the item with your phone's camera
 3. As you type, the app searches existing inventory for similar items and shows them below the form
 4. If a match exists, tap **"Restock This"** to add more quantity to the existing item instead of creating a duplicate. A confirmation dialog shows the item's photo (if available) before restocking.
@@ -135,18 +141,30 @@ The daily backup cron job is configured in `vercel.json` and runs automatically 
 
 1. Scan a barcode with a USB scanner, or type an item name into the search field
 2. The app first tries an exact Item ID match, then falls back to fuzzy search
-3. Results show item details including photo thumbnail, stock count, supplier cost (₹), and last sale price ($)
+3. Results show item details including photo thumbnail, stock count, and last sale price ($)
 4. Tap **"Sell"** — a confirmation dialog appears showing:
    - The item's photo (if available)
    - Item details and current stock
-   - The supplier cost for reference
    - A **mandatory "Sale Price" field** (in $ USD) — must be filled before the sale goes through
 5. After confirming, quantity decrements and a 5-second **Undo** toast appears at the bottom
 
+### Item ID & Barcode Encoding
+
+Each item ID is generated with the supplier price encoded into it:
+
+```
+[3 random digits][rounded supplier price][3 random digits]-COLOR-NAME-CATEGORY-SIZE
+```
+
+For example, a red Kashmir silk sari (size MD) with supplier price 1234 might generate:
+`7891234456-RED-KASHMIR-SILK-SARI-MD`
+
+The supplier price is **not visible** on checkout screens — it can only be decoded by someone who knows the encoding format (strip the first 3 and last 3 digits of the leading number segment).
+
 ### Item Photos
 
-- Photos are uploaded to **Google Drive** using the same service account (no extra credentials needed)
-- A folder called `Annora-Inventory-Photos` is automatically created in the service account's Drive
+- Photos are uploaded to **Google Drive** using OAuth2 with a real Google account (service accounts have no storage quota)
+- A folder called `Annora-Inventory-Photos` is automatically created in the authenticated user's Drive
 - Each photo is made publicly viewable so it can be displayed in the app
 - Photos appear in: restock suggestion cards, restock confirmation dialog, checkout search results, and sell confirmation dialog
 - On mobile, the "Take Photo" button opens the device camera directly (via `capture="environment"`)
@@ -174,7 +192,7 @@ A USB barcode scanner works exactly like a keyboard — when you scan a barcode,
 
 1. Go to the **Checkout** tab — the search field is automatically focused
 2. Point the USB barcode scanner at the item's barcode label and scan it
-3. The scanner types the Item ID (e.g. `RED-KASHMIR-SILK-SARI-MD`) into the search field
+3. The scanner types the Item ID into the search field
 4. The app instantly finds and displays the matching item
 5. Tap **"Sell"**, enter the sale price, and confirm
 
@@ -214,7 +232,7 @@ A USB barcode scanner works exactly like a keyboard — when you scan a barcode,
 ```
 src/
 ├── app/
-│   ├── layout.tsx            # Root layout with auth gate + nav
+│   ├── layout.tsx            # Root layout with auth gate + nav (black/gold theme)
 │   ├── page.tsx              # Redirects to /add-stock
 │   ├── globals.css           # Tailwind + print styles (@page 2x1 for labels)
 │   ├── add-stock/page.tsx    # Add/restock items with photo capture
@@ -222,16 +240,20 @@ src/
 │   └── api/
 │       ├── auth/route.ts     # Password verification
 │       ├── backup/route.ts   # Daily backup (Vercel Cron)
-│       ├── upload/route.ts   # Photo upload to Google Drive
+│       ├── upload/route.ts   # Photo upload to Google Drive (OAuth2)
 │       └── inventory/
-│           ├── route.ts      # GET (list) + POST (create with supplier price)
+│           ├── route.ts      # GET (list) + POST (create with encoded supplier price)
 │           └── [itemId]/route.ts  # PATCH (update qty/dates/sale price)
 ├── components/
-│   ├── AuthGate.tsx          # Password gate wrapper
-│   └── Nav.tsx               # Top navigation tabs
-└── lib/
-    ├── types.ts              # TypeScript types & constants (13 columns)
-    ├── slug.ts               # Item ID slug generator
-    ├── sheets.ts             # Google Sheets + Drive client, cache, logging, backup
-    └── useInventory.ts       # Client-side data hook
+│   ├── AuthGate.tsx          # Password gate wrapper (black/gold login)
+│   └── Nav.tsx               # Top navigation with Annora logo
+├── lib/
+│   ├── types.ts              # TypeScript types & constants (13 columns)
+│   ├── slug.ts               # Item ID slug generator (encodes supplier price)
+│   ├── sheets.ts             # Google Sheets (service account) + Drive (OAuth2), cache, logging, backup
+│   └── useInventory.ts       # Client-side data hook
+├── public/
+│   └── annora-logo.jpg       # Annora brand logo
+└── scripts/
+    └── get-refresh-token.js  # One-time OAuth2 setup script
 ```
