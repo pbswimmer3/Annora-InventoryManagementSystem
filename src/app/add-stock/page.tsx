@@ -411,7 +411,7 @@ export default function AddStockPage() {
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-1.5">Supplier Price *</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">&#8377;</span>
               <input type="number" required min={0} step="0.01" value={supplierPrice} onChange={(e) => setSupplierPrice(e.target.value)}
                 placeholder="0.00"
                 className="w-full border border-gray-300 rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />

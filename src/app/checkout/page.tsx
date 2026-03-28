@@ -247,7 +247,7 @@ export default function CheckoutPage() {
                       <span className={`font-bold ${outOfStock ? "text-gray-400" : lowStock ? "text-red-600" : "text-green-600"}`}>{item.quantity}</span>
                     </span>
                     {item.supplierPrice > 0 && (
-                      <span className="text-gray-400">Cost: ${item.supplierPrice.toFixed(2)}</span>
+                      <span className="text-gray-400">Cost: &#8377;{item.supplierPrice.toFixed(2)}</span>
                     )}
                     {item.salePrice > 0 && (
                       <span className="text-gray-400">Last sold: ${item.salePrice.toFixed(2)}</span>
@@ -293,7 +293,7 @@ export default function CheckoutPage() {
               <p className="text-center text-sm text-red-600 font-medium mb-2">This is the last one in stock!</p>
             )}
             {sellTarget.supplierPrice > 0 && (
-              <p className="text-center text-sm text-gray-400 mb-3">Supplier cost: ${sellTarget.supplierPrice.toFixed(2)}</p>
+              <p className="text-center text-sm text-gray-400 mb-3">Supplier cost: &#8377;{sellTarget.supplierPrice.toFixed(2)}</p>
             )}
 
             <div className="mb-4">

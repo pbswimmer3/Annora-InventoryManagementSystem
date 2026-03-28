@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { Readable } from "stream";
+import { Readable } from "node:stream";
 import { InventoryItem } from "./types";
 
 const SHEET_NAME = "Inventory";
@@ -17,7 +17,7 @@ function getAuth() {
     credentials,
     scopes: [
       "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/drive",
     ],
   });
 }
@@ -186,10 +186,10 @@ export async function uploadPhoto(
   const auth = getAuth();
   const drive = google.drive({ version: "v3", auth });
 
-  // Get or create the photos folder
+  // Step 1: Get or create the photos folder
   const folderId = await getOrCreatePhotosFolder(drive);
 
-  // Upload file
+  // Step 2: Upload file (fresh stream each attempt since streams are consumed once)
   const res = await withRetry(() =>
     drive.files.create({
       requestBody: {
@@ -198,15 +198,16 @@ export async function uploadPhoto(
       },
       media: {
         mimeType,
-        body: Readable.from(fileBuffer),
+        body: Readable.from(Buffer.from(fileBuffer)),
       },
       fields: "id",
     })
   );
 
-  const fileId = res.data.id!;
+  const fileId = res.data.id;
+  if (!fileId) throw new Error("Drive upload returned no file ID");
 
-  // Make the file publicly viewable
+  // Step 3: Make publicly viewable
   await withRetry(() =>
     drive.permissions.create({
       fileId,
@@ -217,8 +218,7 @@ export async function uploadPhoto(
     })
   );
 
-  // Return a direct thumbnail URL
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+  return `https://lh3.googleusercontent.com/d/${fileId}=w400`;
 }
 
 let photosFolderId: string | null = null;
@@ -228,11 +228,10 @@ async function getOrCreatePhotosFolder(
 ): Promise<string> {
   if (photosFolderId) return photosFolderId;
 
-  // Look for existing folder
+  // Search for existing folder (full drive scope can see all files)
   const list = await drive.files.list({
     q: "name = 'Annora-Inventory-Photos' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
     fields: "files(id)",
-    spaces: "drive",
   });
 
   if (list.data.files && list.data.files.length > 0) {
@@ -240,7 +239,7 @@ async function getOrCreatePhotosFolder(
     return photosFolderId;
   }
 
-  // Create folder
+  // Create new folder
   const folder = await drive.files.create({
     requestBody: {
       name: "Annora-Inventory-Photos",

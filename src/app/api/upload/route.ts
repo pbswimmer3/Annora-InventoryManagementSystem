@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadPhoto } from "@/lib/sheets";
 
+// Force Node.js runtime (not Edge) — needed for stream-based Drive uploads
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -10,7 +13,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No photo provided" }, { status: 400 });
     }
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       return NextResponse.json(
         { error: "File must be an image" },
@@ -18,7 +20,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Max 5MB
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
         { error: "Image must be under 5MB" },
@@ -33,9 +34,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ photoUrl });
   } catch (err) {
     console.error("Upload error:", err);
-    return NextResponse.json(
-      { error: "Failed to upload photo" },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : "Failed to upload photo";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

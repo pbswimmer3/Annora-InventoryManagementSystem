@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     };
 
     await appendItem(item);
-    await logAction("ADD", itemId, `New item: ${name}, qty ${item.quantity}, cost $${item.supplierPrice}`);
+    await logAction("ADD", itemId, `New item: ${name}, qty ${item.quantity}, cost ₹${item.supplierPrice}`);
     return NextResponse.json(item, { status: 201 });
   } catch (err) {
     console.error("POST /api/inventory error:", err);
