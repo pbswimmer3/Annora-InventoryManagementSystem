@@ -15,12 +15,21 @@ export interface InventoryItem {
 }
 
 export const CATEGORIES = [
-  "Sari",
-  "Salwar Kameez",
-  "Kurta",
   "Dupatta",
+  "Gowns/Anarkali",
+  "Indo-Western",
+  "Jewelry",
+  "Kurta",
+  "Kurti",
   "Lehenga",
+  "Men's Kurta",
+  "Men's Sherwani",
+  "Men's Vest",
   "Other",
+  "Pre-Draped Saree",
+  "Salwar Kameez",
+  "Saree",
+  "Sharara",
 ] as const;
 
 export const SIZES = ["SM", "MD", "LG", "XL", "XXL"] as const;
