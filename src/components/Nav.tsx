@@ -15,7 +15,7 @@ export default function Nav() {
     <nav className="no-print bg-black sticky top-0 z-10 shadow-lg border-b border-amber-700/40">
       <div className="max-w-2xl mx-auto px-2">
         <div className="flex items-center justify-center pt-2 pb-1">
-          <img src="/annora-logo.jpg" alt="Annora" className="h-10 rounded" />
+          <img src="/annora-logo.jpg" alt="Annora" className="h-28 rounded" />
         </div>
         <div className="flex">
           {tabs.map((tab) => {
