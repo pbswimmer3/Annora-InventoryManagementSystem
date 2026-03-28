@@ -32,7 +32,7 @@ export const CATEGORIES = [
   "Sharara",
 ] as const;
 
-export const SIZES = ["SM", "MD", "LG", "XL", "XXL"] as const;
+export const SIZES = ["Earrings", "Necklace", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "34", "36", "38", "40", "42", "44", "46", "48", "50", "52", "54", "56", "58", "60"] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 export type Size = (typeof SIZES)[number];
