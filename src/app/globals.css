@@ -42,6 +42,7 @@
     text-align: center !important;
     margin-top: 2px !important;
     line-height: 1.1 !important;
+    color: black !important;
   }
 
   #print-label-area .label-item-name {
@@ -49,5 +50,6 @@
     text-align: center !important;
     margin-top: 1px !important;
     line-height: 1.1 !important;
+    color: black !important;
   }
 }
