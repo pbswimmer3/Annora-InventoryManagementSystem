@@ -44,21 +44,38 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 
 6. Copy the Sheet ID from the URL: `https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit`
 
-### 2. Create a Google Service Account
+### 2. Create a Google Service Account (for Sheets)
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or use an existing one)
 3. Enable the **Google Sheets API**
-4. Enable the **Google Drive API** (required for item photo uploads)
+4. Enable the **Google Drive API**
 5. Go to **IAM & Admin > Service Accounts**
 6. Create a new service account
 7. Create a JSON key for this service account — download it
 8. Share your Google Sheet with the service account email (the `client_email` field in the JSON key), giving it **Editor** access
-9. Create a folder in your Google Drive called `Annora-Inventory-Photos` (or any name)
-10. Share that folder with the same service account email, giving it **Editor** access
-11. Copy the folder ID from the URL: `https://drive.google.com/drive/folders/{FOLDER_ID}`
 
-### 3. Configure Environment Variables
+### 3. Set Up OAuth2 for Google Drive (for photo uploads)
+
+Service accounts have no Drive storage quota, so photo uploads use OAuth2 with a real Google account.
+
+1. In Google Cloud Console, go to **APIs & Services > Credentials**
+2. Click **Create Credentials > OAuth client ID**
+3. Choose **Web application** as the type
+4. Add `http://localhost:3333` as an **Authorized redirect URI**
+5. Copy the **Client ID** and **Client Secret**
+6. Run the setup script to get a refresh token:
+
+```bash
+node scripts/get-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>
+```
+
+7. A browser window opens — log in with the Google account where you want photos stored and approve access
+8. The script prints your `GOOGLE_REFRESH_TOKEN` — copy it
+
+Photos are stored in an `Annora-Inventory-Photos` folder automatically created in that Google account's Drive.
+
+### 4. Configure Environment Variables
 
 Copy `.env.example` to `.env.local`:
 
@@ -72,11 +89,13 @@ Set the values:
 - `GOOGLE_SERVICE_ACCOUNT_KEY` — either:
   - The entire JSON key file contents as a single line, OR
   - The JSON key base64-encoded: `cat key.json | base64`
-- `GOOGLE_DRIVE_FOLDER_ID` — the folder ID from step 2 (for photo uploads)
+- `GOOGLE_CLIENT_ID` — OAuth2 Client ID from step 3
+- `GOOGLE_CLIENT_SECRET` — OAuth2 Client Secret from step 3
+- `GOOGLE_REFRESH_TOKEN` — the refresh token from the setup script
 - `APP_PASSWORD` — the password users must enter to access the site (if not set, no password is required)
 - `CRON_SECRET` — a random string to secure the backup cron endpoint (generate with `openssl rand -hex 16`)
 
-### 4. Run Locally
+### 5. Run Locally
 
 ```bash
 npm install
@@ -85,14 +104,16 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) — you'll be prompted for the password, then redirected to Add Stock.
 
-### 5. Deploy to Vercel
+### 6. Deploy to Vercel
 
 1. Push to GitHub
 2. Import the repo in [Vercel](https://vercel.com)
-3. Add all five environment variables in the Vercel project settings:
+3. Add all environment variables in the Vercel project settings:
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_SERVICE_ACCOUNT_KEY`
-   - `GOOGLE_DRIVE_FOLDER_ID`
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_REFRESH_TOKEN`
    - `APP_PASSWORD`
    - `CRON_SECRET`
 4. Deploy

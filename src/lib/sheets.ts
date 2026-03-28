@@ -7,7 +7,8 @@ const RANGE = `${SHEET_NAME}!A:M`;
 const LOG_SHEET = "Log";
 const LOG_RANGE = `${LOG_SHEET}!A:D`;
 
-function getAuth() {
+// Service account auth — used for Google Sheets only
+function getSheetsAuth() {
   let key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "";
   if (!key.startsWith("{")) {
     key = Buffer.from(key, "base64").toString("utf-8");
@@ -15,11 +16,21 @@ function getAuth() {
   const credentials = JSON.parse(key);
   return new google.auth.GoogleAuth({
     credentials,
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive",
-    ],
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
+}
+
+// OAuth2 auth — used for Google Drive uploads (service accounts have no storage quota)
+function getDriveAuth() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("Google OAuth2 credentials not set (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN)");
+  }
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  return oauth2Client;
 }
 
 function getSheetId(): string {
@@ -94,7 +105,7 @@ function itemToRow(item: InventoryItem): string[] {
 export async function getAllItems(): Promise<InventoryItem[]> {
   if (isCacheValid()) return cache!;
 
-  const auth = getAuth();
+  const auth = getSheetsAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
   const res = await withRetry(() =>
@@ -112,7 +123,7 @@ export async function getAllItems(): Promise<InventoryItem[]> {
 }
 
 export async function appendItem(item: InventoryItem): Promise<void> {
-  const auth = getAuth();
+  const auth = getSheetsAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
   await withRetry(() =>
@@ -131,7 +142,7 @@ export async function updateItem(
   itemId: string,
   updates: Partial<Pick<InventoryItem, "quantity" | "lastRestocked" | "lastSold" | "salePrice" | "photoUrl">>
 ): Promise<void> {
-  const auth = getAuth();
+  const auth = getSheetsAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
   const items = await getAllItems();
@@ -160,7 +171,7 @@ export async function logAction(
   details: string
 ): Promise<void> {
   try {
-    const auth = getAuth();
+    const auth = getSheetsAuth();
     const sheets = google.sheets({ version: "v4", auth });
     const timestamp = new Date().toISOString();
 
@@ -183,11 +194,11 @@ export async function uploadPhoto(
   fileName: string,
   mimeType: string
 ): Promise<string> {
-  const auth = getAuth();
+  const auth = getDriveAuth();
   const drive = google.drive({ version: "v3", auth });
 
-  // Step 1: Get the shared photos folder
-  const folderId = getPhotosFolderId();
+  // Step 1: Get or create the photos folder in the OAuth user's Drive
+  const folderId = await getOrCreatePhotosFolder(drive);
 
   // Step 2: Upload file (fresh stream each attempt since streams are consumed once)
   const res = await withRetry(() =>
@@ -221,15 +232,38 @@ export async function uploadPhoto(
   return `https://lh3.googleusercontent.com/d/${fileId}=w400`;
 }
 
-function getPhotosFolderId(): string {
-  const id = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  if (!id) throw new Error("GOOGLE_DRIVE_FOLDER_ID env var is not set");
-  return id;
+let photosFolderId: string | null = null;
+
+async function getOrCreatePhotosFolder(
+  drive: ReturnType<typeof google.drive>
+): Promise<string> {
+  if (photosFolderId) return photosFolderId;
+
+  const list = await drive.files.list({
+    q: "name = 'Annora-Inventory-Photos' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+    fields: "files(id)",
+  });
+
+  if (list.data.files && list.data.files.length > 0) {
+    photosFolderId = list.data.files[0].id!;
+    return photosFolderId;
+  }
+
+  const folder = await drive.files.create({
+    requestBody: {
+      name: "Annora-Inventory-Photos",
+      mimeType: "application/vnd.google-apps.folder",
+    },
+    fields: "id",
+  });
+
+  photosFolderId = folder.data.id!;
+  return photosFolderId;
 }
 
 // --- Backup ---
 export async function createBackup(): Promise<string> {
-  const auth = getAuth();
+  const auth = getSheetsAuth();
   const sheets = google.sheets({ version: "v4", auth });
   const spreadsheetId = getSheetId();
 
