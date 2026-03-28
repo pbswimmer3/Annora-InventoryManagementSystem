@@ -186,8 +186,8 @@ export async function uploadPhoto(
   const auth = getAuth();
   const drive = google.drive({ version: "v3", auth });
 
-  // Step 1: Get or create the photos folder
-  const folderId = await getOrCreatePhotosFolder(drive);
+  // Step 1: Get the shared photos folder
+  const folderId = getPhotosFolderId();
 
   // Step 2: Upload file (fresh stream each attempt since streams are consumed once)
   const res = await withRetry(() =>
@@ -221,35 +221,10 @@ export async function uploadPhoto(
   return `https://lh3.googleusercontent.com/d/${fileId}=w400`;
 }
 
-let photosFolderId: string | null = null;
-
-async function getOrCreatePhotosFolder(
-  drive: ReturnType<typeof google.drive>
-): Promise<string> {
-  if (photosFolderId) return photosFolderId;
-
-  // Search for existing folder (full drive scope can see all files)
-  const list = await drive.files.list({
-    q: "name = 'Annora-Inventory-Photos' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-    fields: "files(id)",
-  });
-
-  if (list.data.files && list.data.files.length > 0) {
-    photosFolderId = list.data.files[0].id!;
-    return photosFolderId;
-  }
-
-  // Create new folder
-  const folder = await drive.files.create({
-    requestBody: {
-      name: "Annora-Inventory-Photos",
-      mimeType: "application/vnd.google-apps.folder",
-    },
-    fields: "id",
-  });
-
-  photosFolderId = folder.data.id!;
-  return photosFolderId;
+function getPhotosFolderId(): string {
+  const id = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  if (!id) throw new Error("GOOGLE_DRIVE_FOLDER_ID env var is not set");
+  return id;
 }
 
 // --- Backup ---

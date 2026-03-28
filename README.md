@@ -54,6 +54,9 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 6. Create a new service account
 7. Create a JSON key for this service account — download it
 8. Share your Google Sheet with the service account email (the `client_email` field in the JSON key), giving it **Editor** access
+9. Create a folder in your Google Drive called `Annora-Inventory-Photos` (or any name)
+10. Share that folder with the same service account email, giving it **Editor** access
+11. Copy the folder ID from the URL: `https://drive.google.com/drive/folders/{FOLDER_ID}`
 
 ### 3. Configure Environment Variables
 
@@ -69,6 +72,7 @@ Set the values:
 - `GOOGLE_SERVICE_ACCOUNT_KEY` — either:
   - The entire JSON key file contents as a single line, OR
   - The JSON key base64-encoded: `cat key.json | base64`
+- `GOOGLE_DRIVE_FOLDER_ID` — the folder ID from step 2 (for photo uploads)
 - `APP_PASSWORD` — the password users must enter to access the site (if not set, no password is required)
 - `CRON_SECRET` — a random string to secure the backup cron endpoint (generate with `openssl rand -hex 16`)
 
@@ -85,9 +89,10 @@ Open [http://localhost:3000](http://localhost:3000) — you'll be prompted for t
 
 1. Push to GitHub
 2. Import the repo in [Vercel](https://vercel.com)
-3. Add all four environment variables in the Vercel project settings:
+3. Add all five environment variables in the Vercel project settings:
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_SERVICE_ACCOUNT_KEY`
+   - `GOOGLE_DRIVE_FOLDER_ID`
    - `APP_PASSWORD`
    - `CRON_SECRET`
 4. Deploy
