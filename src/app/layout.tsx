@@ -18,7 +18,7 @@ export default function RootLayout({
       <body className="bg-gradient-to-br from-orange-50 via-white to-pink-50 min-h-screen">
         <AuthGate>
           <Nav />
-          <main className="no-print max-w-2xl mx-auto px-4 py-6">{children}</main>
+          <main className="max-w-2xl mx-auto px-4 py-6">{children}</main>
         </AuthGate>
       </body>
     </html>

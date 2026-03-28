@@ -1,29 +1,53 @@
 @import "tailwindcss";
 
 @media print {
-  .no-print {
+  @page {
+    size: 2in 1in;
+    margin: 0;
+  }
+
+  /* Hide everything by default */
+  body > * {
     display: none !important;
   }
 
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-  }
-
-  /* Only show the barcode label when printing */
-  #barcode-label {
-    display: block !important;
-    border: none !important;
-    box-shadow: none !important;
-    margin: 0 auto !important;
-    padding: 8px !important;
+  /* Show only the print label area */
+  #print-label-area {
+    display: flex !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 2in !important;
-    page-break-inside: avoid;
+    height: 1in !important;
+    margin: 0 !important;
+    padding: 0.05in 0.1in !important;
+    background: white !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  #barcode-label svg {
-    width: 100% !important;
-    height: auto !important;
+  #print-label-area svg {
+    width: 1.8in !important;
+    height: 0.5in !important;
+    display: block !important;
+  }
+
+  #print-label-area .label-item-id {
+    font-family: monospace !important;
+    font-size: 8pt !important;
+    text-align: center !important;
+    margin-top: 2px !important;
+    line-height: 1.1 !important;
+  }
+
+  #print-label-area .label-item-name {
+    font-size: 7pt !important;
+    text-align: center !important;
+    margin-top: 1px !important;
+    line-height: 1.1 !important;
   }
 }

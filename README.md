@@ -120,12 +120,32 @@ A USB barcode scanner works exactly like a keyboard — when you scan a barcode,
 
 **Recommended scanners:** Any USB barcode scanner that supports Code128 format (nearly all of them do). Budget options ($15-25) from brands like Tera, Netum, or Inateck work great.
 
-**Printing barcode labels:**
+## Printer Setup (Thermal Label Printer)
+
+**Recommended printer:** Any USB thermal label printer (e.g. DYMO LabelWriter, MUNBYN, Rollo, Phomemo)
+
+**Labels:** 2" x 1" direct thermal barcode labels (no ink needed — the printer heats the label to create the image)
+
+**Setup:**
+
+1. Plug the USB thermal printer into the laptop
+2. Install the printer's driver (usually comes on a CD or download from manufacturer's website)
+3. The printer will appear in your system's printer list
+
+**Printing labels:**
 
 1. Add a new item on the **Add Stock** tab
-2. After adding, click **"Print Label"**
-3. In the print dialog, set paper size to match your label sheets (standard 2" x 1" labels work well)
-4. Print and stick the label on the item's tag
+2. After adding, you'll see a **Print Preview** showing the barcode at actual 2" x 1" size
+3. Click **"Print Label"**
+4. In the browser's print dialog, select your thermal printer from the printer list
+5. The browser remembers your printer selection for future prints
+6. Print and stick the label on the item's tag
+
+**Troubleshooting:**
+
+- **Label is clipped or misaligned:** Open your thermal printer's preferences (Control Panel > Devices and Printers > right-click printer > Printing Preferences) and set the paper size to **2" x 1"** (or 51mm x 25mm)
+- **Blank label prints:** Make sure the label is loaded shiny-side facing the print head (thermal labels only print on one side)
+- **Print dialog shows wrong page size:** The app sets `@page { size: 2in 1in }` automatically, but some browsers need the printer preferences set first to respect it
 
 ## Project Structure
 

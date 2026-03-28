@@ -1,9 +1,45 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Fuse from "fuse.js";
 import { useInventory } from "@/lib/useInventory";
 import { InventoryItem, CATEGORIES, SIZES } from "@/lib/types";
+
+function truncate(str: string, max: number): string {
+  return str.length > max ? str.slice(0, max) + "..." : str;
+}
+
+function BarcodeLabel({
+  item,
+  barcodeRef,
+}: {
+  item: InventoryItem;
+  barcodeRef: React.RefObject<SVGSVGElement | null>;
+}) {
+  return (
+    <div
+      style={{
+        width: "2in",
+        height: "1in",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0.05in 0.1in",
+        boxSizing: "border-box",
+      }}
+    >
+      <svg ref={barcodeRef} />
+      <p className="label-item-id" style={{ fontFamily: "monospace", fontSize: "8pt", textAlign: "center", marginTop: "2px", lineHeight: 1.1, wordBreak: "break-all" }}>
+        {item.itemId}
+      </p>
+      <p className="label-item-name" style={{ fontSize: "7pt", textAlign: "center", marginTop: "1px", lineHeight: 1.1 }}>
+        {truncate(item.name, 30)}
+      </p>
+    </div>
+  );
+}
 
 export default function AddStockPage() {
   const { items, setItems, loading, error, refetch } = useInventory();
@@ -19,16 +55,14 @@ export default function AddStockPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successItem, setSuccessItem] = useState<InventoryItem | null>(null);
 
-  // Restock state
-  const [restockTarget, setRestockTarget] = useState<InventoryItem | null>(
-    null
-  );
+  const [restockTarget, setRestockTarget] = useState<InventoryItem | null>(null);
   const [restockQty, setRestockQty] = useState(1);
   const [restocking, setRestocking] = useState(false);
 
   const barcodeRef = useRef<SVGSVGElement>(null);
+  const previewBarcodeRef = useRef<SVGSVGElement>(null);
 
-  // Fuse.js search — search on individual fields for better matching
+  // Fuse.js search
   const fuse = useMemo(
     () =>
       new Fuse(items, {
@@ -44,36 +78,39 @@ export default function AddStockPage() {
     [items]
   );
 
-  // Search driven by NAME field only (category/size always have defaults so they'd pollute results)
-  // Also match on color if provided, but name is the primary trigger
   const matches = useMemo(() => {
     const q = name.trim();
     if (q.length < 2) return [];
-
-    // Build search string from user-typed fields only (skip defaults)
     const searchParts = [q];
     if (color.trim()) searchParts.push(color.trim());
     const searchStr = searchParts.join(" ");
-
     return fuse
       .search(searchStr)
       .filter((r) => (r.score ?? 1) < 0.7)
       .slice(0, 5);
   }, [fuse, name, color]);
 
-  // Render barcode when success item is set
+  // Render barcodes when success item is set
   useEffect(() => {
-    if (successItem && barcodeRef.current) {
-      import("jsbarcode").then((JsBarcode) => {
-        JsBarcode.default(barcodeRef.current!, successItem.itemId, {
-          format: "CODE128",
-          width: 1.5,
-          height: 50,
-          displayValue: false,
-          margin: 4,
-        });
-      });
-    }
+    if (!successItem) return;
+
+    import("jsbarcode").then((JsBarcode) => {
+      const config = {
+        format: "CODE128",
+        width: 1.5,
+        height: 40,
+        displayValue: false,
+        margin: 0,
+      };
+      // Render to the print-portal SVG
+      if (barcodeRef.current) {
+        JsBarcode.default(barcodeRef.current, successItem.itemId, config);
+      }
+      // Render to the on-screen preview SVG
+      if (previewBarcodeRef.current) {
+        JsBarcode.default(previewBarcodeRef.current, successItem.itemId, config);
+      }
+    });
   }, [successItem]);
 
   async function handleSubmitNew(e: React.FormEvent) {
@@ -85,14 +122,7 @@ export default function AddStockPage() {
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          category,
-          size,
-          color,
-          material,
-          quantity,
-        }),
+        body: JSON.stringify({ name, category, size, color, material, quantity }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -120,7 +150,6 @@ export default function AddStockPage() {
     const newQty = restockTarget.quantity + restockQty;
     const now = new Date().toISOString();
 
-    // Optimistic update
     setItems((prev) =>
       prev.map((i) =>
         i.itemId === restockTarget.itemId
@@ -146,7 +175,6 @@ export default function AddStockPage() {
       }
       setRestockTarget(null);
       setRestockQty(1);
-      setSuccessItem(null);
     } catch {
       setSubmitError("Network error — please try again");
       refetch();
@@ -185,12 +213,20 @@ export default function AddStockPage() {
     );
   }
 
-  // Show barcode label after successful add
+  // Success state: show barcode preview + print button
   if (successItem) {
     return (
-      <div>
-        {/* This section is visible on screen */}
-        <div className="no-print text-center py-8">
+      <>
+        {/* Hidden print-only element, portaled to <body> so it's a direct child */}
+        {typeof document !== "undefined" &&
+          createPortal(
+            <div id="print-label-area" style={{ position: "absolute", left: "-9999px", top: 0 }}>
+              <BarcodeLabel item={successItem} barcodeRef={barcodeRef} />
+            </div>,
+            document.body
+          )}
+
+        <div className="text-center py-8">
           <div className="bg-green-50 border border-green-200 rounded-2xl p-8 max-w-sm mx-auto mb-6">
             <p className="text-4xl mb-2">&#10003;</p>
             <h2 className="text-2xl font-bold text-green-700 mb-1">
@@ -198,42 +234,34 @@ export default function AddStockPage() {
             </h2>
             <p className="text-green-600">{successItem.name}</p>
           </div>
-        </div>
 
-        {/* Barcode label — visible both on screen and in print */}
-        <div
-          id="barcode-label"
-          className="mx-auto border-2 border-dashed border-gray-300 rounded-lg p-4 bg-white text-center"
-          style={{ width: "2in", minHeight: "1in" }}
-        >
-          <svg
-            ref={barcodeRef}
-            className="block mx-auto"
-            style={{ maxWidth: "100%", height: "auto" }}
-          />
-          <p className="text-[10px] font-mono mt-1 leading-tight break-all">
-            {successItem.itemId}
-          </p>
-          <p className="text-[9px] mt-0.5 text-gray-600 leading-tight">
-            {successItem.name}
-          </p>
-        </div>
+          {/* On-screen print preview at actual label size */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; x 1&quot;)</p>
+            <div
+              className="inline-block border-2 border-dashed border-gray-300 rounded bg-white overflow-hidden"
+              style={{ width: "2in", height: "1in" }}
+            >
+              <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
+            </div>
+          </div>
 
-        <div className="no-print space-y-3 max-w-sm mx-auto mt-6">
-          <button
-            onClick={handlePrint}
-            className="block w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
-          >
-            Print Label
-          </button>
-          <button
-            onClick={() => setSuccessItem(null)}
-            className="block w-full bg-white text-gray-700 border border-gray-300 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-50 transition-colors"
-          >
-            Add Another Item
-          </button>
+          <div className="space-y-3 max-w-sm mx-auto">
+            <button
+              onClick={handlePrint}
+              className="block w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
+            >
+              Print Label
+            </button>
+            <button
+              onClick={() => setSuccessItem(null)}
+              className="block w-full bg-white text-gray-700 border border-gray-300 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-50 transition-colors"
+            >
+              Add Another Item
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -241,7 +269,6 @@ export default function AddStockPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Add Stock</h1>
 
-      {/* Restock panel */}
       {restockTarget && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-6 shadow-sm">
           <h3 className="font-bold text-blue-800 text-lg mb-1">
@@ -390,7 +417,6 @@ export default function AddStockPage() {
         </button>
       </form>
 
-      {/* Fuzzy match suggestions — shown as user types name */}
       {matches.length > 0 && !restockTarget && (
         <div className="mt-6">
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
