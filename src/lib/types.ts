@@ -19,7 +19,6 @@ export const CATEGORIES = [
   "Gowns/Anarkali",
   "Indo-Western",
   "Jewelry",
-  "Kurta",
   "Kurti",
   "Lehenga",
   "Men's Kurta",
