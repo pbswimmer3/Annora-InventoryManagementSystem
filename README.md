@@ -5,17 +5,20 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 ## Features
 
 - **Add Stock** — Add new items or restock existing ones with fuzzy duplicate detection
-- **Checkout** — Scan barcodes or search to mark items as sold, with undo support
-- **Barcode Labels** — Generate and print Code128 barcode labels for each item
-- **Touch-Friendly** — Designed for tablet use with large tap targets
+- **Supplier Price Tracking** — Mandatory supplier cost (in ₹ rupees) recorded for every item
+- **Item Photos** — Take a photo of each item from your phone's camera; photos are stored in Google Drive and shown during restock and checkout
+- **Checkout with Sale Price** — Scan barcodes or search to sell items; every sale requires entering the sale price (in $ USD), with undo support
+- **Barcode Labels** — Generate and print Code128 barcode labels sized for 2" x 1" thermal label printers, with on-screen print preview
+- **Touch-Friendly** — Designed for tablet/phone use with large tap targets (44px+ minimum)
 - **Password Protected** — Simple password gate to keep the site private
-- **Activity Log** — Every add, restock, sell, and undo is logged to a "Log" sheet tab
-- **Daily Backups** — Automatic daily backup of the Inventory sheet (via Vercel Cron)
+- **Activity Log** — Every add, restock, sell, and undo is logged to a "Log" sheet tab with timestamps
+- **Daily Backups** — Automatic daily backup of the Inventory sheet via Vercel Cron
 
 ## Tech Stack
 
 - Next.js (App Router) with TypeScript
 - Google Sheets as database (via `googleapis`)
+- Google Drive for item photo storage (via `googleapis`, same service account)
 - Tailwind CSS for styling
 - JsBarcode for Code128 barcode generation
 - Fuse.js for fuzzy search
@@ -45,11 +48,12 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or use an existing one)
-3. Enable the **Google Sheets API** and the **Google Drive API** (for photo uploads)
-4. Go to **IAM & Admin > Service Accounts**
-5. Create a new service account
-6. Create a JSON key for this service account — download it
-7. Share your Google Sheet with the service account email (the `client_email` field in the JSON key), giving it **Editor** access
+3. Enable the **Google Sheets API**
+4. Enable the **Google Drive API** (required for item photo uploads)
+5. Go to **IAM & Admin > Service Accounts**
+6. Create a new service account
+7. Create a JSON key for this service account — download it
+8. Share your Google Sheet with the service account email (the `client_email` field in the JSON key), giving it **Editor** access
 
 ### 3. Configure Environment Variables
 
@@ -90,15 +94,47 @@ Open [http://localhost:3000](http://localhost:3000) — you'll be prompted for t
 
 The daily backup cron job is configured in `vercel.json` and runs automatically at 6:00 AM UTC every day. It creates a new sheet tab named `Backup-YYYY-MM-DD` with a full copy of the Inventory sheet. You'll see these backup tabs accumulate in your Google Sheet over time.
 
+## How It Works
+
+### Add Stock Flow
+
+1. Fill in the item details: Name, Category, Size, Color, Material, Quantity, and **Supplier Price** (in ₹ rupees, mandatory)
+2. Optionally tap **"Take Photo"** to snap a picture of the item with your phone's camera
+3. As you type, the app searches existing inventory for similar items and shows them below the form
+4. If a match exists, tap **"Restock This"** to add more quantity to the existing item instead of creating a duplicate. A confirmation dialog shows the item's photo (if available) before restocking.
+5. If no match, tap **"Add New Item"** — the photo uploads to Google Drive, the item is saved to the sheet, and a printable barcode label is generated
+6. A **Print Preview** shows the barcode at actual 2" x 1" size. Tap **"Print Label"** to print.
+
+### Checkout / Sell Flow
+
+1. Scan a barcode with a USB scanner, or type an item name into the search field
+2. The app first tries an exact Item ID match, then falls back to fuzzy search
+3. Results show item details including photo thumbnail, stock count, supplier cost (₹), and last sale price ($)
+4. Tap **"Sell"** — a confirmation dialog appears showing:
+   - The item's photo (if available)
+   - Item details and current stock
+   - The supplier cost for reference
+   - A **mandatory "Sale Price" field** (in $ USD) — must be filled before the sale goes through
+5. After confirming, quantity decrements and a 5-second **Undo** toast appears at the bottom
+
+### Item Photos
+
+- Photos are uploaded to **Google Drive** using the same service account (no extra credentials needed)
+- A folder called `Annora-Inventory-Photos` is automatically created in the service account's Drive
+- Each photo is made publicly viewable so it can be displayed in the app
+- Photos appear in: restock suggestion cards, restock confirmation dialog, checkout search results, and sell confirmation dialog
+- On mobile, the "Take Photo" button opens the device camera directly (via `capture="environment"`)
+- Max file size: 5MB per photo
+
 ## Activity Log
 
 Every action is automatically logged to the `Log` sheet tab in your Google Sheet:
 
 | Action | When it's logged |
 |--------|-----------------|
-| `ADD` | New item added to inventory |
+| `ADD` | New item added to inventory (includes supplier cost) |
 | `RESTOCK` | Existing item quantity increased |
-| `SELL` | Item marked as sold (quantity decremented) |
+| `SELL` | Item marked as sold (includes sale price) |
 | `UNDO_SELL` | Sale undone (quantity restored) |
 | `BACKUP` | Daily backup created |
 
@@ -114,7 +150,7 @@ A USB barcode scanner works exactly like a keyboard — when you scan a barcode,
 2. Point the USB barcode scanner at the item's barcode label and scan it
 3. The scanner types the Item ID (e.g. `RED-KASHMIR-SILK-SARI-MD`) into the search field
 4. The app instantly finds and displays the matching item
-5. Tap **"Sell"** to mark it as sold
+5. Tap **"Sell"**, enter the sale price, and confirm
 
 **No special software or drivers are needed.** Just plug the USB scanner into the laptop. Most USB barcode scanners work out of the box on Windows, Mac, and Chromebooks.
 
@@ -154,21 +190,22 @@ src/
 ├── app/
 │   ├── layout.tsx            # Root layout with auth gate + nav
 │   ├── page.tsx              # Redirects to /add-stock
-│   ├── globals.css           # Tailwind + print styles
-│   ├── add-stock/page.tsx    # Add/restock items
-│   ├── checkout/page.tsx     # Sell items
+│   ├── globals.css           # Tailwind + print styles (@page 2x1 for labels)
+│   ├── add-stock/page.tsx    # Add/restock items with photo capture
+│   ├── checkout/page.tsx     # Sell items with sale price dialog
 │   └── api/
 │       ├── auth/route.ts     # Password verification
 │       ├── backup/route.ts   # Daily backup (Vercel Cron)
+│       ├── upload/route.ts   # Photo upload to Google Drive
 │       └── inventory/
-│           ├── route.ts      # GET (list) + POST (create)
-│           └── [itemId]/route.ts  # PATCH (update)
+│           ├── route.ts      # GET (list) + POST (create with supplier price)
+│           └── [itemId]/route.ts  # PATCH (update qty/dates/sale price)
 ├── components/
 │   ├── AuthGate.tsx          # Password gate wrapper
 │   └── Nav.tsx               # Top navigation tabs
 └── lib/
-    ├── types.ts              # TypeScript types & constants
+    ├── types.ts              # TypeScript types & constants (13 columns)
     ├── slug.ts               # Item ID slug generator
-    ├── sheets.ts             # Google Sheets client + cache + logging + backup
+    ├── sheets.ts             # Google Sheets + Drive client, cache, logging, backup
     └── useInventory.ts       # Client-side data hook
 ```
