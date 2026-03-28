@@ -8,6 +8,9 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 - **Checkout** — Scan barcodes or search to mark items as sold, with undo support
 - **Barcode Labels** — Generate and print Code128 barcode labels for each item
 - **Touch-Friendly** — Designed for tablet use with large tap targets
+- **Password Protected** — Simple password gate to keep the site private
+- **Activity Log** — Every add, restock, sell, and undo is logged to a "Log" sheet tab
+- **Daily Backups** — Automatic daily backup of the Inventory sheet (via Vercel Cron)
 
 ## Tech Stack
 
@@ -29,14 +32,21 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 |---|---|---|---|---|---|---|---|---|---|
 | Item ID | Name | Category | Size | Color | Material | Quantity | Date Added | Last Restocked | Last Sold |
 
-4. Copy the Sheet ID from the URL: `https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit`
+4. Create a second sheet tab called `Log`
+5. Add headers in row 1:
+
+| A | B | C | D |
+|---|---|---|---|
+| Timestamp | Action | Item ID | Details |
+
+6. Copy the Sheet ID from the URL: `https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit`
 
 ### 2. Create a Google Service Account
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or use an existing one)
 3. Enable the **Google Sheets API**
-4. Go to **IAM & Admin → Service Accounts**
+4. Go to **IAM & Admin > Service Accounts**
 5. Create a new service account
 6. Create a JSON key for this service account — download it
 7. Share your Google Sheet with the service account email (the `client_email` field in the JSON key), giving it **Editor** access
@@ -55,6 +65,8 @@ Set the values:
 - `GOOGLE_SERVICE_ACCOUNT_KEY` — either:
   - The entire JSON key file contents as a single line, OR
   - The JSON key base64-encoded: `cat key.json | base64`
+- `APP_PASSWORD` — the password users must enter to access the site (if not set, no password is required)
+- `CRON_SECRET` — a random string to secure the backup cron endpoint (generate with `openssl rand -hex 16`)
 
 ### 4. Run Locally
 
@@ -63,14 +75,34 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to the Add Stock page.
+Open [http://localhost:3000](http://localhost:3000) — you'll be prompted for the password, then redirected to Add Stock.
 
 ### 5. Deploy to Vercel
 
 1. Push to GitHub
 2. Import the repo in [Vercel](https://vercel.com)
-3. Add `GOOGLE_SHEET_ID` and `GOOGLE_SERVICE_ACCOUNT_KEY` as environment variables in the Vercel project settings
+3. Add all four environment variables in the Vercel project settings:
+   - `GOOGLE_SHEET_ID`
+   - `GOOGLE_SERVICE_ACCOUNT_KEY`
+   - `APP_PASSWORD`
+   - `CRON_SECRET`
 4. Deploy
+
+The daily backup cron job is configured in `vercel.json` and runs automatically at 6:00 AM UTC every day. It creates a new sheet tab named `Backup-YYYY-MM-DD` with a full copy of the Inventory sheet. You'll see these backup tabs accumulate in your Google Sheet over time.
+
+## Activity Log
+
+Every action is automatically logged to the `Log` sheet tab in your Google Sheet:
+
+| Action | When it's logged |
+|--------|-----------------|
+| `ADD` | New item added to inventory |
+| `RESTOCK` | Existing item quantity increased |
+| `SELL` | Item marked as sold (quantity decremented) |
+| `UNDO_SELL` | Sale undone (quantity restored) |
+| `BACKUP` | Daily backup created |
+
+Each log entry includes a timestamp, the Item ID, and a description of what changed.
 
 ## Using a USB Barcode Scanner
 
@@ -100,19 +132,23 @@ A USB barcode scanner works exactly like a keyboard — when you scan a barcode,
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # Root layout with nav
-│   ├── page.tsx            # Redirects to /add-stock
-│   ├── globals.css         # Tailwind + print styles
-│   ├── add-stock/page.tsx  # Add/restock items
-│   ├── checkout/page.tsx   # Sell items
-│   └── api/inventory/
-│       ├── route.ts        # GET (list) + POST (create)
-│       └── [itemId]/route.ts  # PATCH (update)
+│   ├── layout.tsx            # Root layout with auth gate + nav
+│   ├── page.tsx              # Redirects to /add-stock
+│   ├── globals.css           # Tailwind + print styles
+│   ├── add-stock/page.tsx    # Add/restock items
+│   ├── checkout/page.tsx     # Sell items
+│   └── api/
+│       ├── auth/route.ts     # Password verification
+│       ├── backup/route.ts   # Daily backup (Vercel Cron)
+│       └── inventory/
+│           ├── route.ts      # GET (list) + POST (create)
+│           └── [itemId]/route.ts  # PATCH (update)
 ├── components/
-│   └── Nav.tsx             # Top navigation tabs
+│   ├── AuthGate.tsx          # Password gate wrapper
+│   └── Nav.tsx               # Top navigation tabs
 └── lib/
-    ├── types.ts            # TypeScript types & constants
-    ├── slug.ts             # Item ID slug generator
-    ├── sheets.ts           # Google Sheets client + cache
-    └── useInventory.ts     # Client-side data hook
+    ├── types.ts              # TypeScript types & constants
+    ├── slug.ts               # Item ID slug generator
+    ├── sheets.ts             # Google Sheets client + cache + logging + backup
+    └── useInventory.ts       # Client-side data hook
 ```

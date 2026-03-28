@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllItems, appendItem } from "@/lib/sheets";
+import { getAllItems, appendItem, logAction } from "@/lib/sheets";
 import { generateSlug } from "@/lib/slug";
 import { InventoryItem } from "@/lib/types";
 
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
     };
 
     await appendItem(item);
+    await logAction("ADD", itemId, `New item: ${name}, qty ${item.quantity}`);
     return NextResponse.json(item, { status: 201 });
   } catch (err) {
     console.error("POST /api/inventory error:", err);

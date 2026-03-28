@@ -3,6 +3,8 @@ import { InventoryItem } from "./types";
 
 const SHEET_NAME = "Inventory";
 const RANGE = `${SHEET_NAME}!A:J`;
+const LOG_SHEET = "Log";
+const LOG_RANGE = `${LOG_SHEET}!A:D`;
 
 function getAuth() {
   let key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "";
@@ -86,6 +88,21 @@ export async function getAllItems(): Promise<InventoryItem[]> {
   return items;
 }
 
+function itemToRow(item: InventoryItem): string[] {
+  return [
+    item.itemId,
+    item.name,
+    item.category,
+    item.size,
+    item.color,
+    item.material,
+    item.quantity.toString(),
+    item.dateAdded,
+    item.lastRestocked,
+    item.lastSold,
+  ];
+}
+
 export async function appendItem(item: InventoryItem): Promise<void> {
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
@@ -95,22 +112,7 @@ export async function appendItem(item: InventoryItem): Promise<void> {
       spreadsheetId: getSheetId(),
       range: RANGE,
       valueInputOption: "RAW",
-      requestBody: {
-        values: [
-          [
-            item.itemId,
-            item.name,
-            item.category,
-            item.size,
-            item.color,
-            item.material,
-            item.quantity.toString(),
-            item.dateAdded,
-            item.lastRestocked,
-            item.lastSold,
-          ],
-        ],
-      },
+      requestBody: { values: [itemToRow(item)] },
     })
   );
 
@@ -124,7 +126,6 @@ export async function updateItem(
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
-  // We need to find the row index first
   const items = await getAllItems();
   const rowIndex = items.findIndex((i) => i.itemId === itemId);
   if (rowIndex === -1) throw new Error(`Item not found: ${itemId}`);
@@ -137,24 +138,101 @@ export async function updateItem(
       spreadsheetId: getSheetId(),
       range: `${SHEET_NAME}!A${sheetRow}:J${sheetRow}`,
       valueInputOption: "RAW",
+      requestBody: { values: [itemToRow(item)] },
+    })
+  );
+
+  invalidateCache();
+}
+
+// --- Activity Logging ---
+export async function logAction(
+  action: string,
+  itemId: string,
+  details: string
+): Promise<void> {
+  try {
+    const auth = getAuth();
+    const sheets = google.sheets({ version: "v4", auth });
+    const timestamp = new Date().toISOString();
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: getSheetId(),
+      range: LOG_RANGE,
+      valueInputOption: "RAW",
       requestBody: {
-        values: [
-          [
-            item.itemId,
-            item.name,
-            item.category,
-            item.size,
-            item.color,
-            item.material,
-            item.quantity.toString(),
-            item.dateAdded,
-            item.lastRestocked,
-            item.lastSold,
+        values: [[timestamp, action, itemId, details]],
+      },
+    });
+  } catch (err) {
+    // Logging should never block the main operation
+    console.error("Failed to write log:", err);
+  }
+}
+
+// --- Backup ---
+export async function createBackup(): Promise<string> {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const spreadsheetId = getSheetId();
+
+  // Get the Inventory sheet's numeric sheetId
+  const spreadsheet = await withRetry(() =>
+    sheets.spreadsheets.get({ spreadsheetId })
+  );
+  const inventorySheet = spreadsheet.data.sheets?.find(
+    (s) => s.properties?.title === SHEET_NAME
+  );
+  if (!inventorySheet?.properties?.sheetId && inventorySheet?.properties?.sheetId !== 0) {
+    throw new Error("Inventory sheet not found");
+  }
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const backupName = `Backup-${dateStr}`;
+
+  // If today's backup already exists, delete it first
+  const existingBackup = spreadsheet.data.sheets?.find(
+    (s) => s.properties?.title === backupName
+  );
+  if (existingBackup?.properties?.sheetId !== undefined) {
+    await withRetry(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            { deleteSheet: { sheetId: existingBackup.properties!.sheetId! } },
           ],
+        },
+      })
+    );
+  }
+
+  // Duplicate the Inventory sheet
+  const dup = await withRetry(() =>
+    sheets.spreadsheets.sheets.copyTo({
+      spreadsheetId,
+      sheetId: inventorySheet.properties!.sheetId!,
+      requestBody: { destinationSpreadsheetId: spreadsheetId },
+    })
+  );
+
+  // Rename the copy to today's backup name
+  await withRetry(() =>
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: { sheetId: dup.data.sheetId!, title: backupName },
+              fields: "title",
+            },
+          },
         ],
       },
     })
   );
 
-  invalidateCache();
+  return backupName;
 }

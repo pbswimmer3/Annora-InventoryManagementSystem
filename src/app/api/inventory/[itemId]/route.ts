@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateItem } from "@/lib/sheets";
+import { updateItem, logAction, getAllItems } from "@/lib/sheets";
 
 export async function PATCH(
   req: NextRequest,
@@ -22,7 +22,29 @@ export async function PATCH(
       );
     }
 
+    // Get old quantity for log details
+    const items = await getAllItems();
+    const oldItem = items.find((i) => i.itemId === itemId);
+    const oldQty = oldItem?.quantity ?? "?";
+
     await updateItem(itemId, updates);
+
+    // Determine action type for the log
+    let action = "UPDATE";
+    let details = `Updated: ${JSON.stringify(updates)}`;
+    if (lastRestocked) {
+      action = "RESTOCK";
+      details = `Qty: ${oldQty} -> ${quantity}`;
+    } else if (lastSold) {
+      action = "SELL";
+      details = `Qty: ${oldQty} -> ${quantity}`;
+    } else if (quantity !== undefined && Number(quantity) > Number(oldQty)) {
+      action = "UNDO_SELL";
+      details = `Qty: ${oldQty} -> ${quantity} (undo)`;
+    }
+
+    await logAction(action, itemId, details);
+
     return NextResponse.json({ success: true, itemId, ...updates });
   } catch (err) {
     console.error("PATCH /api/inventory/[itemId] error:", err);
