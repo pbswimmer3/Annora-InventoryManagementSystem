@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const itemId = generateSlug(color, name, category, size);
+    const itemId = generateSlug(color, name, category, size, parseFloat(supplierPrice) || 0);
 
     const existing = await getAllItems();
     if (existing.some((i) => i.itemId === itemId)) {
