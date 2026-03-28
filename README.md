@@ -28,9 +28,9 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 2. Name the first sheet tab `Inventory`
 3. Add headers in row 1:
 
-| A | B | C | D | E | F | G | H | I | J |
-|---|---|---|---|---|---|---|---|---|---|
-| Item ID | Name | Category | Size | Color | Material | Quantity | Date Added | Last Restocked | Last Sold |
+| A | B | C | D | E | F | G | H | I | J | K | L | M |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Item ID | Name | Category | Size | Color | Material | Quantity | Date Added | Last Restocked | Last Sold | Supplier Price | Sale Price | Photo URL |
 
 4. Create a second sheet tab called `Log`
 5. Add headers in row 1:
@@ -45,7 +45,7 @@ A lightweight inventory management system for a small Indian clothing boutique, 
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or use an existing one)
-3. Enable the **Google Sheets API**
+3. Enable the **Google Sheets API** and the **Google Drive API** (for photo uploads)
 4. Go to **IAM & Admin > Service Accounts**
 5. Create a new service account
 6. Create a JSON key for this service account — download it

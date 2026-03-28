@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, category, size, color, material, quantity } = body;
+    const { name, category, size, color, material, quantity, supplierPrice, photoUrl } = body;
 
     if (!name || !category || !size || !color) {
       return NextResponse.json(
@@ -28,9 +28,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (supplierPrice === undefined || supplierPrice === null || supplierPrice === "") {
+      return NextResponse.json(
+        { error: "Supplier price is required" },
+        { status: 400 }
+      );
+    }
+
     const itemId = generateSlug(color, name, category, size);
 
-    // Check for slug collision
     const existing = await getAllItems();
     if (existing.some((i) => i.itemId === itemId)) {
       return NextResponse.json(
@@ -54,10 +60,13 @@ export async function POST(req: NextRequest) {
       dateAdded: now,
       lastRestocked: "",
       lastSold: "",
+      supplierPrice: parseFloat(supplierPrice) || 0,
+      salePrice: 0,
+      photoUrl: photoUrl || "",
     };
 
     await appendItem(item);
-    await logAction("ADD", itemId, `New item: ${name}, qty ${item.quantity}`);
+    await logAction("ADD", itemId, `New item: ${name}, qty ${item.quantity}, cost $${item.supplierPrice}`);
     return NextResponse.json(item, { status: 201 });
   } catch (err) {
     console.error("POST /api/inventory error:", err);

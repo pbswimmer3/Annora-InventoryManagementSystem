@@ -9,6 +9,9 @@ export interface InventoryItem {
   dateAdded: string;
   lastRestocked: string;
   lastSold: string;
+  supplierPrice: number;
+  salePrice: number;
+  photoUrl: string;
 }
 
 export const CATEGORIES = [

@@ -11,21 +11,34 @@ interface UndoAction {
   timer: ReturnType<typeof setTimeout>;
 }
 
+function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
+  if (!url) return null;
+  return (
+    <img
+      src={url}
+      alt="Item photo"
+      className={`${size} object-cover rounded-lg border border-gray-200`}
+    />
+  );
+}
+
 export default function CheckoutPage() {
   const { items, setItems, loading, error, refetch } = useInventory();
   const [search, setSearch] = useState("");
   const [selling, setSelling] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [confirmItem, setConfirmItem] = useState<InventoryItem | null>(null);
   const [undo, setUndo] = useState<UndoAction | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus search input
+  // Sell dialog state
+  const [sellTarget, setSellTarget] = useState<InventoryItem | null>(null);
+  const [salePrice, setSalePrice] = useState("");
+  const [salePriceError, setSalePriceError] = useState("");
+
   useEffect(() => {
     searchRef.current?.focus();
   }, []);
 
-  // Fuse.js for fuzzy search
   const fuse = useMemo(
     () =>
       new Fuse(items, {
@@ -40,38 +53,23 @@ export default function CheckoutPage() {
     [items]
   );
 
-  // Two-tier search
   const results = useMemo(() => {
     const q = search.trim();
     if (!q) return [];
-
-    // Tier 1: exact Item ID match
-    const exact = items.filter(
-      (i) => i.itemId.toUpperCase() === q.toUpperCase()
-    );
+    const exact = items.filter((i) => i.itemId.toUpperCase() === q.toUpperCase());
     if (exact.length > 0) return exact;
-
-    // Tier 2: fuzzy search
-    return fuse
-      .search(q)
-      .slice(0, 10)
-      .map((r) => r.item);
+    return fuse.search(q).slice(0, 10).map((r) => r.item);
   }, [items, fuse, search]);
 
   const doUndo = useCallback(
     async (action: UndoAction) => {
       clearTimeout(action.timer);
       setUndo(null);
-
-      // Optimistic revert
       setItems((prev) =>
         prev.map((i) =>
-          i.itemId === action.itemId
-            ? { ...i, quantity: action.previousQuantity }
-            : i
+          i.itemId === action.itemId ? { ...i, quantity: action.previousQuantity } : i
         )
       );
-
       try {
         await fetch(`/api/inventory/${encodeURIComponent(action.itemId)}`, {
           method: "PATCH",
@@ -86,33 +84,39 @@ export default function CheckoutPage() {
     [setItems, refetch]
   );
 
-  async function handleSell(item: InventoryItem) {
+  function handleSellClick(item: InventoryItem) {
     if (item.quantity <= 0) return;
+    setSellTarget(item);
+    setSalePrice("");
+    setSalePriceError("");
+  }
 
-    if (item.quantity === 1) {
-      setConfirmItem(item);
+  async function handleConfirmSell() {
+    if (!sellTarget) return;
+
+    const price = parseFloat(salePrice);
+    if (!salePrice || isNaN(price) || price < 0) {
+      setSalePriceError("Please enter a valid sale price");
       return;
     }
 
-    performSell(item);
-  }
-
-  async function performSell(item: InventoryItem) {
-    setSelling(item.itemId);
+    setSelling(sellTarget.itemId);
     setSyncError(null);
-    setConfirmItem(null);
+    setSalePriceError("");
 
+    const item = sellTarget;
     const newQty = item.quantity - 1;
     const now = new Date().toISOString();
     const previousQuantity = item.quantity;
 
+    setSellTarget(null);
     if (undo) clearTimeout(undo.timer);
 
     // Optimistic update
     setItems((prev) =>
       prev.map((i) =>
         i.itemId === item.itemId
-          ? { ...i, quantity: newQty, lastSold: now }
+          ? { ...i, quantity: newQty, lastSold: now, salePrice: price }
           : i
       )
     );
@@ -126,7 +130,7 @@ export default function CheckoutPage() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quantity: newQty, lastSold: now }),
+          body: JSON.stringify({ quantity: newQty, lastSold: now, salePrice: price }),
         }
       );
       if (!res.ok) {
@@ -138,14 +142,12 @@ export default function CheckoutPage() {
               {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ quantity: newQty, lastSold: now }),
+                body: JSON.stringify({ quantity: newQty, lastSold: now, salePrice: price }),
               }
             );
             if (retry.ok) setSyncError(null);
             else refetch();
-          } catch {
-            refetch();
-          }
+          } catch { refetch(); }
         }, 2000);
       }
     } catch {
@@ -171,10 +173,7 @@ export default function CheckoutPage() {
         <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-sm mx-auto">
           <p className="text-4xl mb-3">!</p>
           <p className="text-red-700 font-medium mb-4">{error}</p>
-          <button
-            onClick={refetch}
-            className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors"
-          >
+          <button onClick={refetch} className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors">
             Try Again
           </button>
         </div>
@@ -187,9 +186,7 @@ export default function CheckoutPage() {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Checkout</h1>
 
       {syncError && (
-        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-xl p-4 mb-4 shadow-sm">
-          {syncError}
-        </div>
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-xl p-4 mb-4 shadow-sm">{syncError}</div>
       )}
 
       <div className="relative mb-6">
@@ -207,18 +204,14 @@ export default function CheckoutPage() {
       {!search.trim() && (
         <div className="text-center py-12">
           <p className="text-5xl mb-3 opacity-40">&#x1F50D;</p>
-          <p className="text-gray-400 text-lg">
-            Scan a barcode or type an item name
-          </p>
+          <p className="text-gray-400 text-lg">Scan a barcode or type an item name</p>
         </div>
       )}
 
       {search.trim() && results.length === 0 && (
         <div className="text-center py-12">
           <p className="text-5xl mb-3 opacity-40">&#x1F6AB;</p>
-          <p className="text-gray-400 text-lg">
-            No items found for &quot;{search}&quot;
-          </p>
+          <p className="text-gray-400 text-lg">No items found for &quot;{search}&quot;</p>
         </div>
       )}
 
@@ -230,61 +223,42 @@ export default function CheckoutPage() {
             <div
               key={item.itemId}
               className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${
-                outOfStock
-                  ? "border-gray-200 opacity-50"
-                  : lowStock
-                  ? "border-red-200"
-                  : "border-gray-200 hover:border-gray-300 hover:shadow-md"
+                outOfStock ? "border-gray-200 opacity-50" : lowStock ? "border-red-200" : "border-gray-200 hover:border-gray-300 hover:shadow-md"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {item.photoUrl && <ItemPhoto url={item.photoUrl} size="h-16 w-16" />}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="font-bold text-lg text-gray-800 truncate">
-                      {item.name}
-                    </p>
+                    <p className="font-bold text-lg text-gray-800 truncate">{item.name}</p>
                     {lowStock && !outOfStock && (
-                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">
-                        Last one
-                      </span>
+                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">Last one</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 font-mono truncate">
-                    {item.itemId}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-500">
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">
-                      {item.size}
-                    </span>
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">
-                      {item.color}
-                    </span>
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">
-                      {item.category}
-                    </span>
+                  <p className="text-xs text-gray-400 font-mono truncate">{item.itemId}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">{item.size}</span>
+                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">{item.color}</span>
+                    <span className="bg-gray-100 px-2 py-0.5 rounded-full text-xs">{item.category}</span>
                   </div>
-                  <p className="text-sm mt-1.5">
-                    <span className="text-gray-500">In stock:</span>{" "}
-                    <span
-                      className={`font-bold ${
-                        outOfStock
-                          ? "text-gray-400"
-                          : lowStock
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {item.quantity}
+                  <div className="flex items-center gap-3 mt-1.5 text-sm">
+                    <span>
+                      <span className="text-gray-500">Stock:</span>{" "}
+                      <span className={`font-bold ${outOfStock ? "text-gray-400" : lowStock ? "text-red-600" : "text-green-600"}`}>{item.quantity}</span>
                     </span>
-                  </p>
+                    {item.supplierPrice > 0 && (
+                      <span className="text-gray-400">Cost: ${item.supplierPrice.toFixed(2)}</span>
+                    )}
+                    {item.salePrice > 0 && (
+                      <span className="text-gray-400">Last sold: ${item.salePrice.toFixed(2)}</span>
+                    )}
+                  </div>
                 </div>
                 {outOfStock ? (
-                  <span className="bg-gray-100 text-gray-400 px-4 py-3 rounded-xl text-sm font-semibold min-h-[44px] flex items-center">
-                    Out of Stock
-                  </span>
+                  <span className="bg-gray-100 text-gray-400 px-4 py-3 rounded-xl text-sm font-semibold min-h-[44px] flex items-center">Out of Stock</span>
                 ) : (
                   <button
-                    onClick={() => handleSell(item)}
+                    onClick={() => handleSellClick(item)}
                     disabled={selling === item.itemId}
                     className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-5 py-3 rounded-xl min-h-[44px] text-lg font-semibold disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg hover:from-red-600 hover:to-pink-600 transition-all"
                   >
@@ -297,32 +271,61 @@ export default function CheckoutPage() {
         })}
       </div>
 
-      {/* Last-item confirmation dialog */}
-      {confirmItem && (
+      {/* Sell confirmation dialog with photo + sale price */}
+      {sellTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <div className="text-center mb-4">
-              <p className="text-4xl mb-2">&#9888;&#65039;</p>
-              <h3 className="text-xl font-bold text-gray-800">
-                Last One in Stock
-              </h3>
-            </div>
-            <p className="text-gray-600 text-center mb-6">
-              This is the last <strong>{confirmItem.name}</strong> in stock.
-              Mark as sold?
+            <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">
+              {sellTarget.quantity === 1 ? "Last One in Stock!" : "Confirm Sale"}
+            </h3>
+
+            {sellTarget.photoUrl && (
+              <div className="flex justify-center mb-3">
+                <ItemPhoto url={sellTarget.photoUrl} size="h-32 w-32" />
+              </div>
+            )}
+
+            <p className="text-center font-semibold text-gray-700">{sellTarget.name}</p>
+            <p className="text-center text-sm text-gray-500 mb-1">
+              {sellTarget.size} &middot; {sellTarget.color} &middot; {sellTarget.category}
             </p>
+            {sellTarget.quantity === 1 && (
+              <p className="text-center text-sm text-red-600 font-medium mb-2">This is the last one in stock!</p>
+            )}
+            {sellTarget.supplierPrice > 0 && (
+              <p className="text-center text-sm text-gray-400 mb-3">Supplier cost: ${sellTarget.supplierPrice.toFixed(2)}</p>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-600 mb-1.5">Sale Price *</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={salePrice}
+                  onChange={(e) => { setSalePrice(e.target.value); setSalePriceError(""); }}
+                  placeholder="0.00"
+                  autoFocus
+                  className="w-full border border-gray-300 rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-xl text-center focus:border-purple-400 focus:ring-2 focus:ring-purple-100 focus:outline-none transition-colors"
+                />
+              </div>
+              {salePriceError && <p className="text-red-500 text-sm mt-1">{salePriceError}</p>}
+            </div>
+
             <div className="flex gap-3">
               <button
-                onClick={() => setConfirmItem(null)}
+                onClick={() => setSellTarget(null)}
                 className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={() => performSell(confirmItem)}
+                onClick={handleConfirmSell}
                 className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 rounded-xl min-h-[44px] text-lg font-semibold shadow-md hover:from-red-600 hover:to-pink-600 transition-all"
               >
-                Yes, Sell It
+                Sell
               </button>
             </div>
           </div>
@@ -332,13 +335,8 @@ export default function CheckoutPage() {
       {/* Undo toast */}
       {undo && (
         <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto bg-gray-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-2xl z-50">
-          <span className="text-sm">
-            &#10003; Item marked as sold
-          </span>
-          <button
-            onClick={() => doUndo(undo)}
-            className="bg-white text-gray-900 px-5 py-2 rounded-xl min-h-[44px] font-semibold hover:bg-gray-100 transition-colors"
-          >
+          <span className="text-sm">&#10003; Item marked as sold</span>
+          <button onClick={() => doUndo(undo)} className="bg-white text-gray-900 px-5 py-2 rounded-xl min-h-[44px] font-semibold hover:bg-gray-100 transition-colors">
             Undo
           </button>
         </div>

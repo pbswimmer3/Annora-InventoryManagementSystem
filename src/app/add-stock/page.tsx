@@ -41,6 +41,17 @@ function BarcodeLabel({
   );
 }
 
+function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
+  if (!url) return null;
+  return (
+    <img
+      src={url}
+      alt="Item photo"
+      className={`${size} object-cover rounded-lg border border-gray-200`}
+    />
+  );
+}
+
 export default function AddStockPage() {
   const { items, setItems, loading, error, refetch } = useInventory();
 
@@ -50,6 +61,10 @@ export default function AddStockPage() {
   const [color, setColor] = useState("");
   const [material, setMaterial] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [supplierPrice, setSupplierPrice] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -58,9 +73,11 @@ export default function AddStockPage() {
   const [restockTarget, setRestockTarget] = useState<InventoryItem | null>(null);
   const [restockQty, setRestockQty] = useState(1);
   const [restocking, setRestocking] = useState(false);
+  const [restockConfirm, setRestockConfirm] = useState(false);
 
   const barcodeRef = useRef<SVGSVGElement>(null);
   const previewBarcodeRef = useRef<SVGSVGElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fuse.js search
   const fuse = useMemo(
@@ -90,28 +107,38 @@ export default function AddStockPage() {
       .slice(0, 5);
   }, [fuse, name, color]);
 
-  // Render barcodes when success item is set
+  // Render barcodes
   useEffect(() => {
     if (!successItem) return;
-
     import("jsbarcode").then((JsBarcode) => {
-      const config = {
-        format: "CODE128",
-        width: 1.5,
-        height: 40,
-        displayValue: false,
-        margin: 0,
-      };
-      // Render to the print-portal SVG
-      if (barcodeRef.current) {
-        JsBarcode.default(barcodeRef.current, successItem.itemId, config);
-      }
-      // Render to the on-screen preview SVG
-      if (previewBarcodeRef.current) {
-        JsBarcode.default(previewBarcodeRef.current, successItem.itemId, config);
-      }
+      const config = { format: "CODE128", width: 1.5, height: 40, displayValue: false, margin: 0 };
+      if (barcodeRef.current) JsBarcode.default(barcodeRef.current, successItem.itemId, config);
+      if (previewBarcodeRef.current) JsBarcode.default(previewBarcodeRef.current, successItem.itemId, config);
     });
   }, [successItem]);
+
+  // Photo preview
+  useEffect(() => {
+    if (!photoFile) { setPhotoPreview(null); return; }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  async function uploadPhotoFile(): Promise<string> {
+    if (!photoFile) return "";
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", photoFile);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      return data.photoUrl;
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSubmitNew(e: React.FormEvent) {
     e.preventDefault();
@@ -119,10 +146,16 @@ export default function AddStockPage() {
     setSubmitting(true);
 
     try {
+      // Upload photo first if present
+      let photoUrl = "";
+      if (photoFile) {
+        photoUrl = await uploadPhotoFile();
+      }
+
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, category, size, color, material, quantity }),
+        body: JSON.stringify({ name, category, size, color, material, quantity, supplierPrice, photoUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -135,8 +168,10 @@ export default function AddStockPage() {
       setColor("");
       setMaterial("");
       setQuantity(1);
-    } catch {
-      setSubmitError("Network error — please try again");
+      setSupplierPrice("");
+      setPhotoFile(null);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Network error — please try again");
     } finally {
       setSubmitting(false);
     }
@@ -175,16 +210,13 @@ export default function AddStockPage() {
       }
       setRestockTarget(null);
       setRestockQty(1);
+      setRestockConfirm(false);
     } catch {
       setSubmitError("Network error — please try again");
       refetch();
     } finally {
       setRestocking(false);
     }
-  }
-
-  function handlePrint() {
-    window.print();
   }
 
   if (loading) {
@@ -202,10 +234,7 @@ export default function AddStockPage() {
         <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-sm mx-auto">
           <p className="text-4xl mb-3">!</p>
           <p className="text-red-700 font-medium mb-4">{error}</p>
-          <button
-            onClick={refetch}
-            className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors"
-          >
+          <button onClick={refetch} className="bg-red-600 text-white px-8 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-red-700 transition-colors">
             Try Again
           </button>
         </div>
@@ -213,11 +242,10 @@ export default function AddStockPage() {
     );
   }
 
-  // Success state: show barcode preview + print button
+  // Success: barcode
   if (successItem) {
     return (
       <>
-        {/* Hidden print-only element, portaled to <body> so it's a direct child */}
         {typeof document !== "undefined" &&
           createPortal(
             <div id="print-label-area" style={{ position: "absolute", left: "-9999px", top: 0 }}>
@@ -225,38 +253,28 @@ export default function AddStockPage() {
             </div>,
             document.body
           )}
-
         <div className="text-center py-8">
           <div className="bg-green-50 border border-green-200 rounded-2xl p-8 max-w-sm mx-auto mb-6">
             <p className="text-4xl mb-2">&#10003;</p>
-            <h2 className="text-2xl font-bold text-green-700 mb-1">
-              Item Added!
-            </h2>
+            <h2 className="text-2xl font-bold text-green-700 mb-1">Item Added!</h2>
             <p className="text-green-600">{successItem.name}</p>
+            {successItem.photoUrl && (
+              <div className="mt-3 flex justify-center">
+                <ItemPhoto url={successItem.photoUrl} size="h-24 w-24" />
+              </div>
+            )}
           </div>
-
-          {/* On-screen print preview at actual label size */}
           <div className="mb-4">
             <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; x 1&quot;)</p>
-            <div
-              className="inline-block border-2 border-dashed border-gray-300 rounded bg-white overflow-hidden"
-              style={{ width: "2in", height: "1in" }}
-            >
+            <div className="inline-block border-2 border-dashed border-gray-300 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1in" }}>
               <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
             </div>
           </div>
-
           <div className="space-y-3 max-w-sm mx-auto">
-            <button
-              onClick={handlePrint}
-              className="block w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
-            >
+            <button onClick={() => window.print()} className="block w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold shadow-lg hover:shadow-xl transition-shadow">
               Print Label
             </button>
-            <button
-              onClick={() => setSuccessItem(null)}
-              className="block w-full bg-white text-gray-700 border border-gray-300 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-50 transition-colors"
-            >
+            <button onClick={() => setSuccessItem(null)} className="block w-full bg-white text-gray-700 border border-gray-300 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-50 transition-colors">
               Add Another Item
             </button>
           </div>
@@ -269,20 +287,56 @@ export default function AddStockPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Add Stock</h1>
 
-      {restockTarget && (
+      {/* Restock confirmation dialog with photo */}
+      {restockConfirm && restockTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-800 mb-3 text-center">Confirm Restock</h3>
+            {restockTarget.photoUrl && (
+              <div className="flex justify-center mb-3">
+                <ItemPhoto url={restockTarget.photoUrl} size="h-32 w-32" />
+              </div>
+            )}
+            <p className="text-center text-gray-700 font-semibold">{restockTarget.name}</p>
+            <p className="text-center text-sm text-gray-500 mb-1">
+              {restockTarget.size} &middot; {restockTarget.color} &middot; {restockTarget.category}
+            </p>
+            <p className="text-center text-sm text-gray-500 mb-4">
+              Current stock: <strong>{restockTarget.quantity}</strong> &rarr; Adding <strong>{restockQty}</strong> = <strong>{restockTarget.quantity + restockQty}</strong>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRestockConfirm(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl min-h-[44px] text-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestock}
+                disabled={restocking}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-xl min-h-[44px] text-lg font-semibold shadow-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {restocking ? "Restocking..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restock panel (inline) */}
+      {restockTarget && !restockConfirm && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-6 shadow-sm">
-          <h3 className="font-bold text-blue-800 text-lg mb-1">
-            Restocking: {restockTarget.name}
-          </h3>
-          <p className="text-sm text-blue-600 mb-4">
-            {restockTarget.itemId} &middot; {restockTarget.size} &middot;{" "}
-            {restockTarget.color} &middot; Currently{" "}
-            <strong>{restockTarget.quantity}</strong> in stock
-          </p>
+          <div className="flex gap-4 items-start">
+            {restockTarget.photoUrl && <ItemPhoto url={restockTarget.photoUrl} />}
+            <div className="flex-1">
+              <h3 className="font-bold text-blue-800 text-lg mb-1">Restocking: {restockTarget.name}</h3>
+              <p className="text-sm text-blue-600 mb-4">
+                {restockTarget.itemId} &middot; {restockTarget.size} &middot; {restockTarget.color} &middot; Currently <strong>{restockTarget.quantity}</strong> in stock
+              </p>
+            </div>
+          </div>
           <div className="flex items-center gap-3 mb-4">
-            <label className="text-sm font-medium text-blue-800">
-              Quantity to add:
-            </label>
+            <label className="text-sm font-medium text-blue-800">Quantity to add:</label>
             <input
               type="number"
               min={1}
@@ -293,14 +347,13 @@ export default function AddStockPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={handleRestock}
-              disabled={restocking}
-              className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl min-h-[44px] text-lg font-medium disabled:opacity-50 shadow-md hover:bg-blue-700 transition-colors"
+              onClick={() => setRestockConfirm(true)}
+              className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl min-h-[44px] text-lg font-medium shadow-md hover:bg-blue-700 transition-colors"
             >
-              {restocking ? "Restocking..." : "Confirm Restock"}
+              Restock
             </button>
             <button
-              onClick={() => setRestockTarget(null)}
+              onClick={() => { setRestockTarget(null); setRestockConfirm(false); }}
               className="bg-white text-gray-600 border border-gray-300 px-4 py-3 rounded-xl min-h-[44px] hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -310,145 +363,118 @@ export default function AddStockPage() {
       )}
 
       {submitError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 shadow-sm">
-          {submitError}
-        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 shadow-sm">{submitError}</div>
       )}
 
-      <form
-        onSubmit={handleSubmitNew}
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4"
-      >
+      <form onSubmit={handleSubmitNew} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-            Name *
-          </label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Kashmir Silk"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
-          />
+          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Name *</label>
+          <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Kashmir Silk"
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-              Category *
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Category *</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors">
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-              Size *
-            </label>
-            <select
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
-            >
-              {SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
+            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Size *</label>
+            <select value={size} onChange={(e) => setSize(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors">
+              {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-            Color *
-          </label>
-          <input
-            type="text"
-            required
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            placeholder="e.g. Red"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
-          />
+          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Color *</label>
+          <input type="text" required value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. Red"
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-            Material <span className="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={material}
-            onChange={(e) => setMaterial(e.target.value)}
-            placeholder="e.g. Silk, Cotton"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
-          />
+          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Material <span className="text-gray-400 font-normal">(optional)</span></label>
+          <input type="text" value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Silk, Cotton"
+            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Quantity</label>
+            <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(1, +e.target.value))}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-600 mb-1.5">Supplier Price *</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
+              <input type="number" required min={0} step="0.01" value={supplierPrice} onChange={(e) => setSupplierPrice(e.target.value)}
+                placeholder="0.00"
+                className="w-full border border-gray-300 rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors" />
+            </div>
+          </div>
+        </div>
+
+        {/* Photo capture */}
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1.5">
-            Quantity
-          </label>
+          <label className="block text-sm font-semibold text-gray-600 mb-1.5">Photo <span className="text-gray-400 font-normal">(optional)</span></label>
           <input
-            type="number"
-            min={1}
-            value={quantity}
-            onChange={(e) => setQuantity(Math.max(1, +e.target.value))}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 min-h-[44px] text-lg focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-colors"
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+            className="hidden"
           />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-gray-100 text-gray-700 px-4 py-3 rounded-xl min-h-[44px] text-sm font-medium hover:bg-gray-200 transition-colors border border-gray-200"
+            >
+              {photoFile ? "Change Photo" : "Take Photo"}
+            </button>
+            {photoPreview && (
+              <div className="flex items-center gap-2">
+                <img src={photoPreview} alt="Preview" className="h-12 w-12 object-cover rounded-lg border border-gray-200" />
+                <button type="button" onClick={() => { setPhotoFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  className="text-red-500 text-sm font-medium hover:text-red-700">Remove</button>
+              </div>
+            )}
+          </div>
         </div>
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || uploading}
           className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-4 rounded-xl min-h-[56px] text-xl font-semibold disabled:opacity-50 shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-pink-600 transition-all"
         >
-          {submitting ? "Adding..." : "Add New Item"}
+          {uploading ? "Uploading photo..." : submitting ? "Adding..." : "Add New Item"}
         </button>
       </form>
 
+      {/* Fuzzy match suggestions */}
       {matches.length > 0 && !restockTarget && (
         <div className="mt-6">
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-sm font-semibold text-amber-800 mb-3">
-              Similar items already in stock — restock instead?
-            </p>
+            <p className="text-sm font-semibold text-amber-800 mb-3">Similar items already in stock — restock instead?</p>
             <div className="space-y-2">
               {matches.map((m) => (
-                <div
-                  key={m.item.itemId}
-                  className="bg-white border border-amber-100 rounded-xl p-4 flex items-center justify-between shadow-sm"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-gray-800">
-                      {m.item.name}
-                    </p>
-                    <p className="text-sm text-gray-500 truncate">
-                      {m.item.size} &middot; {m.item.color} &middot;{" "}
-                      {m.item.category}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Qty: <strong>{m.item.quantity}</strong>
-                    </p>
+                <div key={m.item.itemId} className="bg-white border border-amber-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {m.item.photoUrl && <ItemPhoto url={m.item.photoUrl} size="h-14 w-14" />}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-800">{m.item.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{m.item.size} &middot; {m.item.color} &middot; {m.item.category}</p>
+                      <p className="text-sm text-gray-500">Qty: <strong>{m.item.quantity}</strong></p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRestockTarget(m.item);
-                      setRestockQty(1);
-                    }}
-                    className="ml-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl min-h-[44px] text-sm font-semibold whitespace-nowrap shadow-md hover:bg-amber-600 transition-colors"
-                  >
+                  <button type="button" onClick={() => { setRestockTarget(m.item); setRestockQty(1); setRestockConfirm(false); }}
+                    className="ml-3 bg-amber-500 text-white px-4 py-2.5 rounded-xl min-h-[44px] text-sm font-semibold whitespace-nowrap shadow-md hover:bg-amber-600 transition-colors">
                     Restock This
                   </button>
                 </div>

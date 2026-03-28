@@ -1,21 +1,24 @@
 import { google } from "googleapis";
+import { Readable } from "stream";
 import { InventoryItem } from "./types";
 
 const SHEET_NAME = "Inventory";
-const RANGE = `${SHEET_NAME}!A:J`;
+const RANGE = `${SHEET_NAME}!A:M`;
 const LOG_SHEET = "Log";
 const LOG_RANGE = `${LOG_SHEET}!A:D`;
 
 function getAuth() {
   let key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "";
-  // Support base64-encoded key
   if (!key.startsWith("{")) {
     key = Buffer.from(key, "base64").toString("utf-8");
   }
   const credentials = JSON.parse(key);
   return new google.auth.GoogleAuth({
     credentials,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file",
+    ],
   });
 }
 
@@ -28,7 +31,7 @@ function getSheetId(): string {
 // --- In-memory cache ---
 let cache: InventoryItem[] | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 60_000; // 60 seconds
+const CACHE_TTL = 60_000;
 
 export function invalidateCache() {
   cache = null;
@@ -64,7 +67,28 @@ function rowToItem(row: string[]): InventoryItem {
     dateAdded: row[7] || "",
     lastRestocked: row[8] || "",
     lastSold: row[9] || "",
+    supplierPrice: parseFloat(row[10] || "0"),
+    salePrice: parseFloat(row[11] || "0"),
+    photoUrl: row[12] || "",
   };
+}
+
+function itemToRow(item: InventoryItem): string[] {
+  return [
+    item.itemId,
+    item.name,
+    item.category,
+    item.size,
+    item.color,
+    item.material,
+    item.quantity.toString(),
+    item.dateAdded,
+    item.lastRestocked,
+    item.lastSold,
+    item.supplierPrice.toString(),
+    item.salePrice.toString(),
+    item.photoUrl,
+  ];
 }
 
 export async function getAllItems(): Promise<InventoryItem[]> {
@@ -81,26 +105,10 @@ export async function getAllItems(): Promise<InventoryItem[]> {
   );
 
   const rows = res.data.values || [];
-  // Skip header row
   const items = rows.slice(1).map(rowToItem);
   cache = items;
   cacheTimestamp = Date.now();
   return items;
-}
-
-function itemToRow(item: InventoryItem): string[] {
-  return [
-    item.itemId,
-    item.name,
-    item.category,
-    item.size,
-    item.color,
-    item.material,
-    item.quantity.toString(),
-    item.dateAdded,
-    item.lastRestocked,
-    item.lastSold,
-  ];
 }
 
 export async function appendItem(item: InventoryItem): Promise<void> {
@@ -121,7 +129,7 @@ export async function appendItem(item: InventoryItem): Promise<void> {
 
 export async function updateItem(
   itemId: string,
-  updates: Partial<Pick<InventoryItem, "quantity" | "lastRestocked" | "lastSold">>
+  updates: Partial<Pick<InventoryItem, "quantity" | "lastRestocked" | "lastSold" | "salePrice" | "photoUrl">>
 ): Promise<void> {
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
@@ -131,12 +139,12 @@ export async function updateItem(
   if (rowIndex === -1) throw new Error(`Item not found: ${itemId}`);
 
   const item = { ...items[rowIndex], ...updates };
-  const sheetRow = rowIndex + 2; // +1 for header, +1 for 1-based index
+  const sheetRow = rowIndex + 2;
 
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: getSheetId(),
-      range: `${SHEET_NAME}!A${sheetRow}:J${sheetRow}`,
+      range: `${SHEET_NAME}!A${sheetRow}:M${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values: [itemToRow(item)] },
     })
@@ -165,9 +173,84 @@ export async function logAction(
       },
     });
   } catch (err) {
-    // Logging should never block the main operation
     console.error("Failed to write log:", err);
   }
+}
+
+// --- Photo Upload to Google Drive ---
+export async function uploadPhoto(
+  fileBuffer: Buffer,
+  fileName: string,
+  mimeType: string
+): Promise<string> {
+  const auth = getAuth();
+  const drive = google.drive({ version: "v3", auth });
+
+  // Get or create the photos folder
+  const folderId = await getOrCreatePhotosFolder(drive);
+
+  // Upload file
+  const res = await withRetry(() =>
+    drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [folderId],
+      },
+      media: {
+        mimeType,
+        body: Readable.from(fileBuffer),
+      },
+      fields: "id",
+    })
+  );
+
+  const fileId = res.data.id!;
+
+  // Make the file publicly viewable
+  await withRetry(() =>
+    drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: "reader",
+        type: "anyone",
+      },
+    })
+  );
+
+  // Return a direct thumbnail URL
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+}
+
+let photosFolderId: string | null = null;
+
+async function getOrCreatePhotosFolder(
+  drive: ReturnType<typeof google.drive>
+): Promise<string> {
+  if (photosFolderId) return photosFolderId;
+
+  // Look for existing folder
+  const list = await drive.files.list({
+    q: "name = 'Annora-Inventory-Photos' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+    fields: "files(id)",
+    spaces: "drive",
+  });
+
+  if (list.data.files && list.data.files.length > 0) {
+    photosFolderId = list.data.files[0].id!;
+    return photosFolderId;
+  }
+
+  // Create folder
+  const folder = await drive.files.create({
+    requestBody: {
+      name: "Annora-Inventory-Photos",
+      mimeType: "application/vnd.google-apps.folder",
+    },
+    fields: "id",
+  });
+
+  photosFolderId = folder.data.id!;
+  return photosFolderId;
 }
 
 // --- Backup ---
@@ -176,7 +259,6 @@ export async function createBackup(): Promise<string> {
   const sheets = google.sheets({ version: "v4", auth });
   const spreadsheetId = getSheetId();
 
-  // Get the Inventory sheet's numeric sheetId
   const spreadsheet = await withRetry(() =>
     sheets.spreadsheets.get({ spreadsheetId })
   );
@@ -188,10 +270,9 @@ export async function createBackup(): Promise<string> {
   }
 
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const dateStr = now.toISOString().slice(0, 10);
   const backupName = `Backup-${dateStr}`;
 
-  // If today's backup already exists, delete it first
   const existingBackup = spreadsheet.data.sheets?.find(
     (s) => s.properties?.title === backupName
   );
@@ -208,7 +289,6 @@ export async function createBackup(): Promise<string> {
     );
   }
 
-  // Duplicate the Inventory sheet
   const dup = await withRetry(() =>
     sheets.spreadsheets.sheets.copyTo({
       spreadsheetId,
@@ -217,7 +297,6 @@ export async function createBackup(): Promise<string> {
     })
   );
 
-  // Rename the copy to today's backup name
   await withRetry(() =>
     sheets.spreadsheets.batchUpdate({
       spreadsheetId,
