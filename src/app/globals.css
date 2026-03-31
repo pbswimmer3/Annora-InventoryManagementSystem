@@ -47,8 +47,8 @@
   }
 
   #print-label-area svg {
-    width: 1.82in !important;
-    height: 0.42in !important;
+    max-width: 1.84in !important;
+    height: 0.48in !important;
     display: block !important;
   }
 

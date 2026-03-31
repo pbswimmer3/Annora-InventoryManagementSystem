@@ -118,10 +118,13 @@ export default function AddStockPage() {
   // Render barcodes
   useEffect(() => {
     if (!successItem) return;
+    // Encode only the short numeric price prefix (e.g. "3956000181") — not the full 40+ char item ID.
+    // The full ID is too long for scannable bars on a 2"x1" label; the prefix is unique per item.
+    const barcodeValue = successItem.itemId.split('-')[0];
     import("jsbarcode").then((JsBarcode) => {
-      const config = { format: "CODE128", width: 2, height: 44, displayValue: false, margin: 2 };
-      if (barcodeRef.current) JsBarcode.default(barcodeRef.current, successItem.itemId, config);
-      if (previewBarcodeRef.current) JsBarcode.default(previewBarcodeRef.current, successItem.itemId, config);
+      const config = { format: "CODE128", width: 3, height: 50, displayValue: false, margin: 4 };
+      if (barcodeRef.current) JsBarcode.default(barcodeRef.current, barcodeValue, config);
+      if (previewBarcodeRef.current) JsBarcode.default(previewBarcodeRef.current, barcodeValue, config);
     });
   }, [successItem]);
 

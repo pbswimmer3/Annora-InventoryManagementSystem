@@ -56,8 +56,12 @@ export default function CheckoutPage() {
   const results = useMemo(() => {
     const q = search.trim();
     if (!q) return [];
+    // Exact full item ID match
     const exact = items.filter((i) => i.itemId.toUpperCase() === q.toUpperCase());
     if (exact.length > 0) return exact;
+    // Barcode prefix match — barcode encodes only the numeric prefix before the first hyphen
+    const prefixMatch = items.filter((i) => i.itemId.startsWith(q + "-") || i.itemId.split("-")[0] === q);
+    if (prefixMatch.length > 0) return prefixMatch;
     return fuse.search(q).slice(0, 10).map((r) => r.item);
   }, [items, fuse, search]);
 

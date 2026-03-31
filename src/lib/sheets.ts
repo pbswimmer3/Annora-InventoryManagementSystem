@@ -79,9 +79,9 @@ function rowToItem(row: string[]): InventoryItem {
     lastRestocked: row[8] || "",
     lastSold: row[9] || "",
     supplierPrice: parseFloat(row[10] || "0"),
-    salePrice: parseFloat(row[11] || "0"),
+    listPrice: parseFloat(row[11] || "0"),
     photoUrl: row[12] || "",
-    listPrice: parseFloat(row[13] || "0"),
+    salePrice: parseFloat(row[13] || "0"),
   };
 }
 
@@ -98,9 +98,9 @@ function itemToRow(item: InventoryItem): string[] {
     item.lastRestocked,
     item.lastSold,
     item.supplierPrice.toString(),
-    item.salePrice.toString(),
-    item.photoUrl,
     item.listPrice.toString(),
+    item.photoUrl,
+    item.salePrice.toString(),
   ];
 }
 
