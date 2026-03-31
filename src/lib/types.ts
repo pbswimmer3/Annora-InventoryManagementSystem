@@ -12,6 +12,7 @@ export interface InventoryItem {
   supplierPrice: number;
   salePrice: number;
   photoUrl: string;
+  listPrice: number;
 }
 
 export const CATEGORIES = [

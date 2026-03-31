@@ -26,16 +26,23 @@ function BarcodeLabel({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "0.05in 0.1in",
+        padding: "0.04in 0.08in",
         boxSizing: "border-box",
+        gap: "1px",
+        background: "white",
       }}
     >
+      {item.listPrice > 0 && (
+        <p className="label-list-price" style={{ fontSize: "14pt", fontWeight: "bold", textAlign: "center", color: "black", lineHeight: 1, letterSpacing: "0.02em" }}>
+          ${item.listPrice.toFixed(2)}
+        </p>
+      )}
       <svg ref={barcodeRef} />
-      <p className="label-item-id" style={{ fontFamily: "monospace", fontSize: "8pt", textAlign: "center", marginTop: "2px", lineHeight: 1.1, wordBreak: "break-all" }}>
-        {item.itemId}
+      <p className="label-item-name" style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
+        {truncate(item.name, 35)}
       </p>
-      <p className="label-item-name" style={{ fontSize: "7pt", textAlign: "center", marginTop: "1px", lineHeight: 1.1 }}>
-        {truncate(item.name, 30)}
+      <p className="label-item-id" style={{ fontFamily: "monospace", fontSize: "6pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
+        {item.itemId}
       </p>
     </div>
   );
@@ -62,6 +69,7 @@ export default function AddStockPage() {
   const [material, setMaterial] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [supplierPrice, setSupplierPrice] = useState("");
+  const [listPrice, setListPrice] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -111,7 +119,7 @@ export default function AddStockPage() {
   useEffect(() => {
     if (!successItem) return;
     import("jsbarcode").then((JsBarcode) => {
-      const config = { format: "CODE128", width: 1.5, height: 40, displayValue: false, margin: 0 };
+      const config = { format: "CODE128", width: 2, height: 44, displayValue: false, margin: 2 };
       if (barcodeRef.current) JsBarcode.default(barcodeRef.current, successItem.itemId, config);
       if (previewBarcodeRef.current) JsBarcode.default(previewBarcodeRef.current, successItem.itemId, config);
     });
@@ -155,7 +163,7 @@ export default function AddStockPage() {
       const res = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, category, size, color, material, quantity, supplierPrice, photoUrl }),
+        body: JSON.stringify({ name, category, size, color, material, quantity, supplierPrice, listPrice, photoUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -169,6 +177,7 @@ export default function AddStockPage() {
       setMaterial("");
       setQuantity(1);
       setSupplierPrice("");
+      setListPrice("");
       setPhotoFile(null);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Network error — please try again");
@@ -416,6 +425,16 @@ export default function AddStockPage() {
                 placeholder="0.00"
                 className="w-full border border-gray-700 bg-black rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-lg text-white placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
             </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-amber-400 mb-1.5">Selling Price <span className="text-gray-500 font-normal text-xs">(printed on label)</span></label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">$</span>
+            <input type="number" min={0} step="0.01" value={listPrice} onChange={(e) => setListPrice(e.target.value)}
+              placeholder="0.00"
+              className="w-full border border-amber-700/50 bg-black rounded-xl pl-8 pr-4 py-3 min-h-[44px] text-xl font-semibold text-amber-300 placeholder-gray-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-colors" />
           </div>
         </div>
 

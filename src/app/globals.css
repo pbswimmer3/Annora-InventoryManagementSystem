@@ -6,6 +6,12 @@
     margin: 0;
   }
 
+  /* Force white background — prevents dark theme from printing black */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
   /* Hide everything by default */
   body > * {
     display: none !important;
@@ -21,34 +27,42 @@
     width: 2in !important;
     height: 1in !important;
     margin: 0 !important;
-    padding: 0.05in 0.1in !important;
+    padding: 0.04in 0.08in !important;
     background: white !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
+    gap: 1px !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  #print-label-area svg {
-    width: 1.8in !important;
-    height: 0.5in !important;
-    display: block !important;
+  #print-label-area .label-list-price {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    color: black !important;
+    line-height: 1 !important;
+    letter-spacing: 0.02em !important;
   }
 
-  #print-label-area .label-item-id {
-    font-family: monospace !important;
-    font-size: 8pt !important;
-    text-align: center !important;
-    margin-top: 2px !important;
-    line-height: 1.1 !important;
-    color: black !important;
+  #print-label-area svg {
+    width: 1.82in !important;
+    height: 0.42in !important;
+    display: block !important;
   }
 
   #print-label-area .label-item-name {
     font-size: 7pt !important;
     text-align: center !important;
-    margin-top: 1px !important;
+    line-height: 1.1 !important;
+    color: black !important;
+  }
+
+  #print-label-area .label-item-id {
+    font-family: monospace !important;
+    font-size: 6pt !important;
+    text-align: center !important;
     line-height: 1.1 !important;
     color: black !important;
   }

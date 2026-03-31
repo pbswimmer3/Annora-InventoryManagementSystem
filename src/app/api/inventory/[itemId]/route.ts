@@ -8,7 +8,7 @@ export async function PATCH(
   try {
     const { itemId } = await params;
     const body = await req.json();
-    const { quantity, lastRestocked, lastSold, salePrice, photoUrl } = body;
+    const { quantity, lastRestocked, lastSold, salePrice, photoUrl, listPrice } = body;
 
     const updates: Record<string, string | number> = {};
     if (quantity !== undefined) updates.quantity = quantity;
@@ -16,6 +16,7 @@ export async function PATCH(
     if (lastSold !== undefined) updates.lastSold = lastSold;
     if (salePrice !== undefined) updates.salePrice = salePrice;
     if (photoUrl !== undefined) updates.photoUrl = photoUrl;
+    if (listPrice !== undefined) updates.listPrice = listPrice;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(

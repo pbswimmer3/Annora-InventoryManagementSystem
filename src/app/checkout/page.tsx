@@ -87,7 +87,7 @@ export default function CheckoutPage() {
   function handleSellClick(item: InventoryItem) {
     if (item.quantity <= 0) return;
     setSellTarget(item);
-    setSalePrice("");
+    setSalePrice(item.listPrice > 0 ? item.listPrice.toFixed(2) : "");
     setSalePriceError("");
   }
 

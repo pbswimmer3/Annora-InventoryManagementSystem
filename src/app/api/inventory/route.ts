@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, category, size, color, material, quantity, supplierPrice, photoUrl } = body;
+    const { name, category, size, color, material, quantity, supplierPrice, photoUrl, listPrice } = body;
 
     if (!name || !category || !size || !color) {
       return NextResponse.json(
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       supplierPrice: parseFloat(supplierPrice) || 0,
       salePrice: 0,
       photoUrl: photoUrl || "",
+      listPrice: parseFloat(listPrice) || 0,
     };
 
     await appendItem(item);

@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { InventoryItem } from "./types";
 
 const SHEET_NAME = "Inventory";
-const RANGE = `${SHEET_NAME}!A:M`;
+const RANGE = `${SHEET_NAME}!A:N`;
 const LOG_SHEET = "Log";
 const LOG_RANGE = `${LOG_SHEET}!A:D`;
 
@@ -81,6 +81,7 @@ function rowToItem(row: string[]): InventoryItem {
     supplierPrice: parseFloat(row[10] || "0"),
     salePrice: parseFloat(row[11] || "0"),
     photoUrl: row[12] || "",
+    listPrice: parseFloat(row[13] || "0"),
   };
 }
 
@@ -99,6 +100,7 @@ function itemToRow(item: InventoryItem): string[] {
     item.supplierPrice.toString(),
     item.salePrice.toString(),
     item.photoUrl,
+    item.listPrice.toString(),
   ];
 }
 
@@ -140,7 +142,7 @@ export async function appendItem(item: InventoryItem): Promise<void> {
 
 export async function updateItem(
   itemId: string,
-  updates: Partial<Pick<InventoryItem, "quantity" | "lastRestocked" | "lastSold" | "salePrice" | "photoUrl">>
+  updates: Partial<Pick<InventoryItem, "quantity" | "lastRestocked" | "lastSold" | "salePrice" | "photoUrl" | "listPrice">>
 ): Promise<void> {
   const auth = getSheetsAuth();
   const sheets = google.sheets({ version: "v4", auth });
@@ -155,7 +157,7 @@ export async function updateItem(
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: getSheetId(),
-      range: `${SHEET_NAME}!A${sheetRow}:M${sheetRow}`,
+      range: `${SHEET_NAME}!A${sheetRow}:N${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values: [itemToRow(item)] },
     })
