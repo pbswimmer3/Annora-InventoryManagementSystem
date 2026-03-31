@@ -39,10 +39,10 @@ function BarcodeLabel({
       )}
       <svg ref={barcodeRef} />
       <p className="label-item-name" style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
-        {truncate(item.name, 35)}
+        {item.category}
       </p>
       <p className="label-item-id" style={{ fontFamily: "monospace", fontSize: "6pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
-        {item.itemId}
+        {item.itemId.split('-')[0]}-{item.color}-{item.size}
       </p>
     </div>
   );
