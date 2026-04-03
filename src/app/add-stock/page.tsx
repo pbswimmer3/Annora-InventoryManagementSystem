@@ -21,7 +21,7 @@ function BarcodeLabel({
     <div
       style={{
         width: "2in",
-        height: "1in",
+        height: "1.2in",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -277,8 +277,8 @@ export default function AddStockPage() {
             )}
           </div>
           <div className="mb-4">
-            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; x 1&quot;)</p>
-            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1in" }}>
+            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; x 1.2&quot;)</p>
+            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1.2in" }}>
               <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
             </div>
           </div>
