@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import Fuse from "fuse.js";
 import { useInventory } from "@/lib/useInventory";
 import { InventoryItem, CATEGORIES, SIZES } from "@/lib/types";
@@ -20,7 +19,7 @@ function BarcodeLabel({
   return (
     <div
       style={{
-        width: "2in",
+        width: "2.2in",
         height: "1.2in",
         display: "flex",
         flexDirection: "column",
@@ -46,6 +45,63 @@ function BarcodeLabel({
       </p>
     </div>
   );
+}
+
+function esc(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | null) {
+  const svgHtml = barcodeSvgEl?.outerHTML ?? "";
+  const price = item.listPrice > 0
+    ? `<p class="price">$${item.listPrice.toFixed(2)}</p>`
+    : "";
+  const category = esc(item.category);
+  const itemLine = esc(`${item.itemId.split("-")[0]}-${item.color}-${item.size}`);
+
+  const win = window.open("", "_blank", "width=220,height=130,toolbar=0,menubar=0,scrollbars=0");
+  if (!win) { alert("Allow popups to print labels"); return; }
+
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@page { size: 2.2in 1.2in; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 2.2in;
+  height: 1.2in;
+  overflow: hidden;
+  background: white;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.04in 0.1in;
+  gap: 1px;
+  font-family: Arial, sans-serif;
+}
+.price { font-size: 14pt; font-weight: bold; line-height: 1; letter-spacing: 0.02em; color: black; }
+.bc svg { max-width: 2.0in; height: 0.5in; display: block; }
+.cat { font-size: 7pt; line-height: 1.1; color: black; text-align: center; }
+.id  { font-family: monospace; font-size: 6pt; line-height: 1.1; color: black; text-align: center; }
+</style>
+</head>
+<body>
+${price}
+<div class="bc">${svgHtml}</div>
+<p class="cat">${category}</p>
+<p class="id">${itemLine}</p>
+<script>window.onload = function() { window.print(); window.close(); };<\/script>
+</body>
+</html>`);
+  win.document.close();
 }
 
 function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
@@ -83,7 +139,6 @@ export default function AddStockPage() {
   const [restocking, setRestocking] = useState(false);
   const [restockConfirm, setRestockConfirm] = useState(false);
 
-  const barcodeRef = useRef<SVGSVGElement>(null);
   const previewBarcodeRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -123,7 +178,6 @@ export default function AddStockPage() {
     const barcodeValue = successItem.itemId.split('-')[0];
     import("jsbarcode").then((JsBarcode) => {
       const config = { format: "CODE128", width: 3, height: 50, displayValue: false, margin: 4 };
-      if (barcodeRef.current) JsBarcode.default(barcodeRef.current, barcodeValue, config);
       if (previewBarcodeRef.current) JsBarcode.default(previewBarcodeRef.current, barcodeValue, config);
     });
   }, [successItem]);
@@ -257,41 +311,35 @@ export default function AddStockPage() {
   // Success: barcode
   if (successItem) {
     return (
-      <>
-        {typeof document !== "undefined" &&
-          createPortal(
-            <div id="print-label-area" style={{ position: "absolute", left: "-9999px", top: 0 }}>
-              <BarcodeLabel item={successItem} barcodeRef={barcodeRef} />
-            </div>,
-            document.body
-          )}
-        <div className="text-center py-8">
-          <div className="bg-green-950/40 border border-green-800 rounded-2xl p-8 max-w-sm mx-auto mb-6">
-            <p className="text-4xl mb-2">&#10003;</p>
-            <h2 className="text-2xl font-bold text-green-400 mb-1">Item Added!</h2>
-            <p className="text-green-300">{successItem.name}</p>
-            {successItem.photoUrl && (
-              <div className="mt-3 flex justify-center">
-                <ItemPhoto url={successItem.photoUrl} size="h-24 w-24" />
-              </div>
-            )}
-          </div>
-          <div className="mb-4">
-            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; x 1.2&quot;)</p>
-            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1.2in" }}>
-              <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
+      <div className="text-center py-8">
+        <div className="bg-green-950/40 border border-green-800 rounded-2xl p-8 max-w-sm mx-auto mb-6">
+          <p className="text-4xl mb-2">&#10003;</p>
+          <h2 className="text-2xl font-bold text-green-400 mb-1">Item Added!</h2>
+          <p className="text-green-300">{successItem.name}</p>
+          {successItem.photoUrl && (
+            <div className="mt-3 flex justify-center">
+              <ItemPhoto url={successItem.photoUrl} size="h-24 w-24" />
             </div>
-          </div>
-          <div className="space-y-3 max-w-sm mx-auto">
-            <button onClick={() => window.print()} className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all">
-              Print Label
-            </button>
-            <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
-              Add Another Item
-            </button>
+          )}
+        </div>
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2.2&quot; x 1.2&quot;)</p>
+          <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2.2in", height: "1.2in" }}>
+            <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
           </div>
         </div>
-      </>
+        <div className="space-y-3 max-w-sm mx-auto">
+          <button
+            onClick={() => printLabel(successItem, previewBarcodeRef.current)}
+            className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all"
+          >
+            Print Label
+          </button>
+          <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
+            Add Another Item
+          </button>
+        </div>
+      </div>
     );
   }
 
