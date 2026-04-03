@@ -52,53 +52,78 @@ function esc(s: string) {
 }
 
 function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | null) {
-  const svgHtml = barcodeSvgEl?.outerHTML ?? "";
+  // Clone SVG and strip fixed dimensions so CSS controls the size
+  let svgHtml = "";
+  if (barcodeSvgEl) {
+    const clone = barcodeSvgEl.cloneNode(true) as SVGSVGElement;
+    clone.removeAttribute("width");
+    clone.removeAttribute("height");
+    svgHtml = clone.outerHTML;
+  }
+
   const price = item.listPrice > 0
     ? `<p class="price">$${item.listPrice.toFixed(2)}</p>`
     : "";
   const category = esc(item.category);
   const itemLine = esc(`${item.itemId.split("-")[0]}-${item.color}-${item.size}`);
 
-  const win = window.open("", "_blank", "width=220,height=130,toolbar=0,menubar=0,scrollbars=0");
+  const win = window.open("", "_blank", "toolbar=0,menubar=0,scrollbars=0");
   if (!win) { alert("Allow popups to print labels"); return; }
 
+  // viewport width=211: tells iOS the page is 211px wide = 2.2in at 96 CSS dpi
+  // JS onload: forces html/body height to 115px = 1.2in before print,
+  //   so iOS sees a document that is exactly one label tall (not the full viewport height)
   win.document.write(`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=211, initial-scale=1">
 <style>
 @page { size: 2.2in 1.2in; margin: 0; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
-  width: 2.2in;
-  height: 1.2in;
-  overflow: hidden;
+  width: 211px;
   background: white;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0.04in 0.1in;
-  gap: 1px;
+#label {
+  width: 211px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 4px 8px; gap: 2px;
   font-family: Arial, sans-serif;
 }
-.price { font-size: 14pt; font-weight: bold; line-height: 1; letter-spacing: 0.02em; color: black; }
-.bc svg { max-width: 2.0in; height: 0.5in; display: block; }
+.price { font-size: 13pt; font-weight: bold; line-height: 1; color: black; }
+.bc    { width: 100%; }
+.bc svg { width: 100%; height: auto; display: block; }
 .cat { font-size: 7pt; line-height: 1.1; color: black; text-align: center; }
-.id  { font-family: monospace; font-size: 6pt; line-height: 1.1; color: black; text-align: center; }
+.id  { font-family: monospace; font-size: 6pt; line-height: 1; color: black; text-align: center; }
 </style>
 </head>
 <body>
+<div id="label">
 ${price}
 <div class="bc">${svgHtml}</div>
 <p class="cat">${category}</p>
 <p class="id">${itemLine}</p>
-<script>window.onload = function() { window.print(); window.close(); };<\/script>
+</div>
+<script>
+window.onload = function() {
+  // 1.2in * 96px/in = 115px — pin the document to exactly one label height
+  var labelPx = Math.round(1.2 * 96);
+  var label = document.getElementById('label');
+  label.style.height = labelPx + 'px';
+  document.body.style.height = labelPx + 'px';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.height = labelPx + 'px';
+  document.documentElement.style.overflow = 'hidden';
+  setTimeout(function() {
+    window.print();
+    window.onafterprint = function() { window.close(); };
+  }, 500);
+};
+<\/script>
 </body>
 </html>`);
   win.document.close();
