@@ -47,86 +47,84 @@ function BarcodeLabel({
   );
 }
 
-function esc(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** Convert the barcode SVG element to a PNG data-URL via an offscreen canvas. */
+function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
+  return new Promise((resolve) => {
+    const clone = svgEl.cloneNode(true) as SVGSVGElement;
+    // Ensure explicit width/height for the serialised SVG so the Image has dimensions
+    const w = svgEl.getAttribute("width") || String(svgEl.getBoundingClientRect().width);
+    const h = svgEl.getAttribute("height") || String(svgEl.getBoundingClientRect().height);
+    clone.setAttribute("width", w);
+    clone.setAttribute("height", h);
+    const xml = new XMLSerializer().serializeToString(clone);
+    const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      // 2× for sharper print output
+      canvas.width = Number(w) * 2;
+      canvas.height = Number(h) * 2;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.src = url;
+  });
 }
 
-function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | null) {
-  // Clone SVG and strip fixed dimensions so CSS controls the size
-  let svgHtml = "";
-  if (barcodeSvgEl) {
-    const clone = barcodeSvgEl.cloneNode(true) as SVGSVGElement;
-    clone.removeAttribute("width");
-    clone.removeAttribute("height");
-    svgHtml = clone.outerHTML;
+/**
+ * Generate a PDF at exactly the label size and open it in a new tab.
+ * iOS prints PDFs with NO headers / footers / pagination — solving all
+ * the Safari AirPrint issues that CSS @page cannot fix.
+ */
+async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | null) {
+  const { jsPDF } = await import("jspdf");
+
+  // Page = 2.2 × 1.2 inches.  jsPDF uses "in" as the unit.
+  const pw = 2.2;
+  const ph = 1.2;
+  const doc = new jsPDF({ orientation: "landscape", unit: "in", format: [ph, pw] });
+
+  // ---- Price ----
+  let y = 0.12;
+  if (item.listPrice > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`$${item.listPrice.toFixed(2)}`, pw / 2, y, { align: "center" });
+    y += 0.17;
   }
 
-  const price = item.listPrice > 0
-    ? `<p class="price">$${item.listPrice.toFixed(2)}</p>`
-    : "";
-  const category = esc(item.category);
-  const itemLine = esc(`${item.itemId.split("-")[0]}-${item.color}-${item.size}`);
+  // ---- Barcode image ----
+  if (barcodeSvgEl) {
+    const dataUrl = await svgToDataUrl(barcodeSvgEl);
+    // Barcode image: centred, max width with small side margins
+    const barcodeW = 1.9;
+    const barcodeH = 0.5;
+    const bx = (pw - barcodeW) / 2;
+    doc.addImage(dataUrl, "PNG", bx, y, barcodeW, barcodeH);
+    y += barcodeH + 0.04;
+  }
 
-  const win = window.open("", "_blank", "toolbar=0,menubar=0,scrollbars=0");
-  if (!win) { alert("Allow popups to print labels"); return; }
+  // ---- Category ----
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.text(item.category, pw / 2, y, { align: "center" });
+  y += 0.09;
 
-  // viewport width=211: tells iOS the page is 211px wide = 2.2in at 96 CSS dpi
-  // JS onload: forces html/body height to 115px = 1.2in before print,
-  //   so iOS sees a document that is exactly one label tall (not the full viewport height)
-  win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=211, initial-scale=1">
-<style>
-@page { size: 2.2in 1.2in; margin: 0; }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body {
-  width: 211px;
-  background: white;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-#label {
-  width: 211px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 4px 8px; gap: 2px;
-  font-family: Arial, sans-serif;
-}
-.price { font-size: 13pt; font-weight: bold; line-height: 1; color: black; }
-.bc    { width: 100%; }
-.bc svg { width: 100%; height: auto; display: block; }
-.cat { font-size: 7pt; line-height: 1.1; color: black; text-align: center; }
-.id  { font-family: monospace; font-size: 6pt; line-height: 1; color: black; text-align: center; }
-</style>
-</head>
-<body>
-<div id="label">
-${price}
-<div class="bc">${svgHtml}</div>
-<p class="cat">${category}</p>
-<p class="id">${itemLine}</p>
-</div>
-<script>
-window.onload = function() {
-  // 1.2in * 96px/in = 115px — pin the document to exactly one label height
-  var labelPx = Math.round(1.2 * 96);
-  var label = document.getElementById('label');
-  label.style.height = labelPx + 'px';
-  document.body.style.height = labelPx + 'px';
-  document.body.style.overflow = 'hidden';
-  document.documentElement.style.height = labelPx + 'px';
-  document.documentElement.style.overflow = 'hidden';
-  setTimeout(function() {
-    window.print();
-    window.onafterprint = function() { window.close(); };
-  }, 500);
-};
-<\/script>
-</body>
-</html>`);
-  win.document.close();
+  // ---- Item ID line ----
+  doc.setFont("courier", "normal");
+  doc.setFontSize(6);
+  const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
+  doc.text(idLine, pw / 2, y, { align: "center" });
+
+  // Open the PDF in a new tab — iOS prints PDFs cleanly (no headers/footers)
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
 }
 
 function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {

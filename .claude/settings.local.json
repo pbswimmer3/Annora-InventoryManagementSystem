@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:copyprogramming.com)",
+      "WebFetch(domain:dontpaniclabs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:caniuse.com)",
+      "WebFetch(domain:www.dymo-label-printers.co.uk)",
+      "WebFetch(domain:discussions.apple.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:webkit.org)",
+      "WebFetch(domain:whizz-tech.com)",
+      "WebFetch(domain:www.arrowheadphx.com)",
+      "WebFetch(domain:developer.zebra.com)",
+      "WebFetch(domain:www.xjavascript.com)",
+      "WebFetch(domain:codepen.io)",
+      "Bash(npm install:*)",
+      "Bash(npx next:*)"
+    ]
+  }
+}
