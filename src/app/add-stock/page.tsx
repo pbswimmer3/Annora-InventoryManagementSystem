@@ -81,15 +81,19 @@ function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
  * iOS prints PDFs with NO headers / footers / pagination — solving all
  * the Safari AirPrint issues that CSS @page cannot fix.
  */
-async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | null) {
-  const { jsPDF } = await import("jspdf");
-
-  // Page = 2.2 × 1.2 inches.  jsPDF uses "in" as the unit.
+/**
+ * Build the label PDF synchronously using pre-loaded jsPDF and barcode image.
+ * Must be synchronous so iOS Safari doesn't block it as a popup.
+ */
+function buildAndSaveLabel(
+  item: InventoryItem,
+  jsPDFClass: typeof import("jspdf").jsPDF,
+  barcodeDataUrl: string | null,
+) {
   const pw = 2.2;
   const ph = 1.2;
-  const doc = new jsPDF({ orientation: "landscape", unit: "in", format: [ph, pw] });
+  const doc = new jsPDFClass({ orientation: "landscape", unit: "in", format: [ph, pw] });
 
-  // ---- Price ----
   let y = 0.12;
   if (item.listPrice > 0) {
     doc.setFont("helvetica", "bold");
@@ -98,31 +102,34 @@ async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | nul
     y += 0.17;
   }
 
-  // ---- Barcode image ----
-  if (barcodeSvgEl) {
-    const dataUrl = await svgToDataUrl(barcodeSvgEl);
-    // Barcode image: centred, max width with small side margins
+  if (barcodeDataUrl) {
     const barcodeW = 1.9;
     const barcodeH = 0.5;
     const bx = (pw - barcodeW) / 2;
-    doc.addImage(dataUrl, "PNG", bx, y, barcodeW, barcodeH);
+    doc.addImage(barcodeDataUrl, "PNG", bx, y, barcodeW, barcodeH);
     y += barcodeH + 0.04;
   }
 
-  // ---- Category ----
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text(item.category, pw / 2, y, { align: "center" });
   y += 0.09;
 
-  // ---- Item ID line ----
   doc.setFont("courier", "normal");
   doc.setFontSize(6);
   const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
   doc.text(idLine, pw / 2, y, { align: "center" });
 
-  // Use jsPDF's built-in save which handles iOS Safari correctly
-  doc.save("label.pdf");
+  const pdfBlob = doc.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
+  // Use a temporary <a> tag click — synchronous, so iOS allows it
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
@@ -163,6 +170,10 @@ export default function AddStockPage() {
   const previewBarcodeRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pre-loaded resources for synchronous label printing (iOS Safari requirement)
+  const [jsPDFClass, setJsPDFClass] = useState<typeof import("jspdf").jsPDF | null>(null);
+  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string | null>(null);
+
   // Fuse.js search
   const fuse = useMemo(
     () =>
@@ -191,16 +202,24 @@ export default function AddStockPage() {
       .slice(0, 5);
   }, [fuse, name, color]);
 
-  // Render barcodes
+  // Render barcodes and pre-load print resources
   useEffect(() => {
-    if (!successItem) return;
-    // Encode only the short numeric price prefix (e.g. "3956000181") — not the full 40+ char item ID.
-    // The full ID is too long for scannable bars on a 2"x1" label; the prefix is unique per item.
+    if (!successItem) {
+      setBarcodeDataUrl(null);
+      setJsPDFClass(null);
+      return;
+    }
     const barcodeValue = successItem.itemId.split('-')[0];
     import("jsbarcode").then((JsBarcode) => {
       const config = { format: "CODE128", width: 3, height: 50, displayValue: false, margin: 4 };
-      if (previewBarcodeRef.current) JsBarcode.default(previewBarcodeRef.current, barcodeValue, config);
+      if (previewBarcodeRef.current) {
+        JsBarcode.default(previewBarcodeRef.current, barcodeValue, config);
+        // Pre-render barcode to PNG data URL for the PDF
+        svgToDataUrl(previewBarcodeRef.current).then(setBarcodeDataUrl);
+      }
     });
+    // Pre-load jsPDF so the print click handler is synchronous
+    import("jspdf").then((mod) => setJsPDFClass(() => mod.jsPDF));
   }, [successItem]);
 
   // Photo preview
@@ -351,10 +370,13 @@ export default function AddStockPage() {
         </div>
         <div className="space-y-3 max-w-sm mx-auto">
           <button
-            onClick={() => printLabel(successItem, previewBarcodeRef.current)}
-            className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all"
+            onClick={() => {
+              if (jsPDFClass) buildAndSaveLabel(successItem, jsPDFClass, barcodeDataUrl);
+            }}
+            disabled={!jsPDFClass}
+            className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50"
           >
-            Print Label
+            {jsPDFClass ? "Print Label" : "Loading..."}
           </button>
           <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
             Add Another Item
