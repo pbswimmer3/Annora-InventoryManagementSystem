@@ -125,17 +125,13 @@ async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | nul
   const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
   doc.text(idLine, pw / 2, y, { align: "center" });
 
-  // Write the PDF into the pre-opened window as an embedded object
-  const blob = doc.output("blob");
-  const url = URL.createObjectURL(blob);
+  // Use a data URL so iOS Safari can display the PDF directly.
+  // Blob URLs and <embed> don't work on iPad.
+  const dataUri = doc.output("datauristring");
   if (win) {
-    win.document.write(
-      `<!DOCTYPE html><html><head><title>Print Label</title><style>html,body{margin:0;height:100%}</style></head>` +
-      `<body><embed src="${url}" type="application/pdf" width="100%" height="100%"></body></html>`
-    );
-    win.document.close();
+    win.location.href = dataUri;
   } else {
-    window.location.href = url;
+    window.location.href = dataUri;
   }
 }
 
