@@ -82,10 +82,6 @@ function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
  * the Safari AirPrint issues that CSS @page cannot fix.
  */
 async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | null) {
-  // Open the window synchronously (inside the click handler call stack)
-  // so the browser doesn't block it as a popup.
-  const win = window.open("", "_blank");
-
   const { jsPDF } = await import("jspdf");
 
   // Page = 2.2 × 1.2 inches.  jsPDF uses "in" as the unit.
@@ -125,14 +121,8 @@ async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | nul
   const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
   doc.text(idLine, pw / 2, y, { align: "center" });
 
-  // Use a data URL so iOS Safari can display the PDF directly.
-  // Blob URLs and <embed> don't work on iPad.
-  const dataUri = doc.output("datauristring");
-  if (win) {
-    win.location.href = dataUri;
-  } else {
-    window.location.href = dataUri;
-  }
+  // Use jsPDF's built-in save which handles iOS Safari correctly
+  doc.save("label.pdf");
 }
 
 function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
