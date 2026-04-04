@@ -125,14 +125,17 @@ async function printLabel(item: InventoryItem, barcodeSvgEl: SVGSVGElement | nul
   const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
   doc.text(idLine, pw / 2, y, { align: "center" });
 
-  // Navigate the pre-opened window to the PDF blob URL
+  // Write the PDF into the pre-opened window as an embedded object
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
   if (win) {
-    win.location.href = url;
+    win.document.write(
+      `<!DOCTYPE html><html><head><title>Print Label</title><style>html,body{margin:0;height:100%}</style></head>` +
+      `<body><embed src="${url}" type="application/pdf" width="100%" height="100%"></body></html>`
+    );
+    win.document.close();
   } else {
-    // Fallback if the window was still blocked
-    window.open(url, "_blank");
+    window.location.href = url;
   }
 }
 
