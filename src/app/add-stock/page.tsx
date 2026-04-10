@@ -56,97 +56,12 @@ function BarcodeLabel({
   );
 }
 
-/** Convert the barcode SVG element to a PNG data-URL via an offscreen canvas. */
-function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
-  return new Promise((resolve) => {
-    const clone = svgEl.cloneNode(true) as SVGSVGElement;
-    // Ensure explicit width/height for the serialised SVG so the Image has dimensions
-    const w = svgEl.getAttribute("width") || String(svgEl.getBoundingClientRect().width);
-    const h = svgEl.getAttribute("height") || String(svgEl.getBoundingClientRect().height);
-    clone.setAttribute("width", w);
-    clone.setAttribute("height", h);
-    const xml = new XMLSerializer().serializeToString(clone);
-    const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      // 2× for sharper print output
-      canvas.width = Number(w) * 2;
-      canvas.height = Number(h) * 2;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.src = url;
-  });
-}
-
 /**
- * Primary print method: generate a PDF at exact label dimensions and open it
- * in a new tab. PDFs bypass Safari's print quirks — no headers/footers, no
- * browser margins, and the page size is embedded in the PDF metadata.
- *
- * Content is inset slightly (0.05") from the page edges to stay within the
- * printer's imageable area (hardware margins).
+ * Open an HTML popup with only the label + a print button.
+ * Works best in Chrome on iPad — Chrome respects @page size and hides
+ * screen-only elements during print, unlike Safari.
  */
-function openLabelPDF(
-  item: InventoryItem,
-  jsPDFClass: typeof import("jspdf").jsPDF,
-  barcodeDataUrl: string | null,
-) {
-  const pw = 2.2;
-  const ph = 1.2;
-  const margin = 0.05; // inset to avoid hardware margin clipping
-  const doc = new jsPDFClass({ orientation: "landscape", unit: "in", format: [ph, pw] });
-
-  let y = margin + 0.08;
-  if (item.listPrice > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(`$${item.listPrice.toFixed(2)}`, pw / 2, y, { align: "center" });
-    y += 0.16;
-  }
-
-  if (barcodeDataUrl) {
-    const barcodeW = pw - margin * 2 - 0.1; // ~2.0" wide
-    const barcodeH = 0.48;
-    const bx = (pw - barcodeW) / 2;
-    doc.addImage(barcodeDataUrl, "PNG", bx, y, barcodeW, barcodeH);
-    y += barcodeH + 0.03;
-  }
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.text(item.category, pw / 2, y, { align: "center" });
-  y += 0.08;
-
-  doc.setFont("courier", "normal");
-  doc.setFontSize(6);
-  const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
-  doc.text(idLine, pw / 2, y, { align: "center" });
-
-  // Open as blob URL in new tab — works reliably on iOS Safari
-  const pdfBlob = doc.output("blob");
-  const url = URL.createObjectURL(pdfBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.target = "_blank";
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-/**
- * Fallback: open an HTML popup with only the label + a print button.
- * Includes a back button. Note: Safari adds headers/footers to HTML prints
- * and ignores @page size, so the PDF method above is preferred.
- */
-function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
+function printLabelPopup(item: InventoryItem, barcodeSvgMarkup: string | null) {
   const w = window.open("", "_blank");
   if (!w) {
     window.print();
@@ -157,8 +72,8 @@ function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
     item.listPrice > 0
       ? `<div style="font-size:14pt;font-weight:bold;text-align:center;line-height:1;letter-spacing:0.02em">$${item.listPrice.toFixed(2)}</div>`
       : "";
-  const barcode = barcodeDataUrl
-    ? `<img src="${barcodeDataUrl}" style="max-width:1.8in;height:auto;display:block" alt="barcode">`
+  const barcode = barcodeSvgMarkup
+    ? `<div class="bc">${barcodeSvgMarkup}</div>`
     : "";
   const category = escapeHtml(item.category);
   const idLine = `${escapeHtml(item.itemId.split("-")[0])}-${escapeHtml(item.color)}-${escapeHtml(item.size)}`;
@@ -182,6 +97,8 @@ function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
     padding:0.05in 0.08in;gap:1px;
     background:#fff;font-family:Helvetica,Arial,sans-serif;overflow:hidden;
   }
+  .bc{max-width:2in;text-align:center}
+  .bc svg{max-width:100%;height:auto}
   .cat{font-size:7pt;text-align:center;line-height:1.1}
   .iid{font-family:'Courier New',monospace;font-size:6pt;text-align:center;line-height:1.1}
   .screen-ui{text-align:center;padding:24px;font-family:-apple-system,system-ui,sans-serif}
@@ -199,7 +116,7 @@ function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
   <button class="btn" onclick="window.print()">Tap to Print</button>
   <button class="back" onclick="window.close()">Back</button>
   <div class="tips">
-    <b>Printing tips:</b><br>
+    <b>Printing tips (use Chrome on iPad):</b><br>
     1. Tap the button above<br>
     2. Select your label printer<br>
     3. Set Paper Size to <b>2.2&quot; &times; 1.2&quot;</b><br>
@@ -250,9 +167,8 @@ export default function AddStockPage() {
   const previewBarcodeRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Pre-loaded resources for synchronous label printing (iOS Safari requirement)
-  const [jsPDFClass, setJsPDFClass] = useState<typeof import("jspdf").jsPDF | null>(null);
-  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string | null>(null);
+  // Serialized SVG markup of the barcode for embedding in the print popup
+  const [barcodeSvgMarkup, setBarcodeSvgMarkup] = useState<string | null>(null);
 
   // Fuse.js search
   const fuse = useMemo(
@@ -282,11 +198,10 @@ export default function AddStockPage() {
       .slice(0, 5);
   }, [fuse, name, color]);
 
-  // Render barcodes and pre-load print resources
+  // Render barcode SVG and serialize it for the print popup
   useEffect(() => {
     if (!successItem) {
-      setBarcodeDataUrl(null);
-      setJsPDFClass(null);
+      setBarcodeSvgMarkup(null);
       return;
     }
     const barcodeValue = successItem.itemId.split('-')[0];
@@ -294,12 +209,11 @@ export default function AddStockPage() {
       const config = { format: "CODE128", width: 3, height: 50, displayValue: false, margin: 4 };
       if (previewBarcodeRef.current) {
         JsBarcode.default(previewBarcodeRef.current, barcodeValue, config);
-        // Pre-render barcode to PNG data URL for the PDF
-        svgToDataUrl(previewBarcodeRef.current).then(setBarcodeDataUrl);
+        // Serialize the SVG markup for embedding in the print popup
+        const markup = new XMLSerializer().serializeToString(previewBarcodeRef.current);
+        setBarcodeSvgMarkup(markup);
       }
     });
-    // Pre-load jsPDF so the print click handler is synchronous
-    import("jspdf").then((mod) => setJsPDFClass(() => mod.jsPDF));
   }, [successItem]);
 
   // Photo preview
@@ -463,8 +377,8 @@ export default function AddStockPage() {
                 ${successItem.listPrice.toFixed(2)}
               </p>
             )}
-            {barcodeDataUrl && (
-              <img src={barcodeDataUrl} alt="barcode" style={{ maxWidth: "1.8in", height: "auto" }} />
+            {barcodeSvgMarkup && (
+              <div style={{ maxWidth: "2in", textAlign: "center" }} dangerouslySetInnerHTML={{ __html: barcodeSvgMarkup }} />
             )}
             <p style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
               {successItem.category}
@@ -495,20 +409,11 @@ export default function AddStockPage() {
           </div>
           <div className="space-y-3 max-w-sm mx-auto">
             <button
-              onClick={() => {
-                if (jsPDFClass) openLabelPDF(successItem, jsPDFClass, barcodeDataUrl);
-              }}
-              disabled={!jsPDFClass || !barcodeDataUrl}
+              onClick={() => printLabelPopup(successItem, barcodeSvgMarkup)}
+              disabled={!barcodeSvgMarkup}
               className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50"
             >
-              {jsPDFClass && barcodeDataUrl ? "Print Label (PDF)" : "Loading..."}
-            </button>
-            <button
-              onClick={() => printLabelPopup(successItem, barcodeDataUrl)}
-              disabled={!barcodeDataUrl}
-              className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-3 rounded-xl min-h-[44px] text-base hover:bg-gray-700 transition-colors disabled:opacity-50"
-            >
-              Print from Browser Instead
+              {barcodeSvgMarkup ? "Print Label" : "Loading..."}
             </button>
             <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
               Add Another Item
