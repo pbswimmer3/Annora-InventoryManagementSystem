@@ -28,20 +28,20 @@ function BarcodeLabel({
   return (
     <div
       style={{
-        width: "2.2in",
-        height: "1.2in",
+        width: "2in",
+        height: "1in",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "0.05in 0.08in",
+        padding: "0.04in 0.06in",
         boxSizing: "border-box",
         gap: "1px",
         background: "white",
       }}
     >
       {item.listPrice > 0 && (
-        <p style={{ fontSize: "14pt", fontWeight: "bold", textAlign: "center", color: "black", lineHeight: 1, letterSpacing: "0.02em" }}>
+        <p style={{ fontSize: "12pt", fontWeight: "bold", textAlign: "center", color: "black", lineHeight: 1, letterSpacing: "0.02em" }}>
           ${item.listPrice.toFixed(2)}
         </p>
       )}
@@ -70,7 +70,7 @@ function printLabelPopup(item: InventoryItem, barcodeSvgMarkup: string | null) {
 
   const price =
     item.listPrice > 0
-      ? `<div style="font-size:14pt;font-weight:bold;text-align:center;line-height:1;letter-spacing:0.02em">$${item.listPrice.toFixed(2)}</div>`
+      ? `<div style="font-size:12pt;font-weight:bold;text-align:center;line-height:1;letter-spacing:0.02em">$${item.listPrice.toFixed(2)}</div>`
       : "";
   const barcode = barcodeSvgMarkup
     ? `<div class="bc">${barcodeSvgMarkup}</div>`
@@ -92,12 +92,13 @@ function printLabelPopup(item: InventoryItem, barcodeSvgMarkup: string | null) {
     .screen-ui{display:none!important}
   }
   .label{
-    width:2.2in;height:1.2in;
+    width:2in;height:1in;
+    margin:0.1in auto;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:0.05in 0.08in;gap:1px;
+    padding:0.04in 0.06in;gap:1px;
     background:#fff;font-family:Helvetica,Arial,sans-serif;overflow:hidden;
   }
-  .bc{max-width:2in;text-align:center}
+  .bc{max-width:1.8in;text-align:center}
   .bc svg{max-width:100%;height:auto}
   .cat{font-size:7pt;text-align:center;line-height:1.1}
   .iid{font-family:'Courier New',monospace;font-size:6pt;text-align:center;line-height:1.1}
@@ -119,7 +120,7 @@ function printLabelPopup(item: InventoryItem, barcodeSvgMarkup: string | null) {
     <b>Printing tips (use Chrome on iPad):</b><br>
     1. Tap the button above<br>
     2. Select your label printer<br>
-    3. Set Paper Size to <b>2.2&quot; &times; 1.2&quot;</b><br>
+    3. Set Paper Size to <b>2.2&quot; &times; 1.2&quot;</b> (smallest available)<br>
     4. Make sure scaling is at <b>100%</b> (no fit-to-page)<br>
     5. Print!
   </div>
@@ -206,7 +207,7 @@ export default function AddStockPage() {
     }
     const barcodeValue = successItem.itemId.split('-')[0];
     import("jsbarcode").then((JsBarcode) => {
-      const config = { format: "CODE128", width: 3, height: 50, displayValue: false, margin: 4 };
+      const config = { format: "CODE128", width: 2.5, height: 40, displayValue: false, margin: 2 };
       if (previewBarcodeRef.current) {
         JsBarcode.default(previewBarcodeRef.current, barcodeValue, config);
         // Serialize the SVG markup for embedding in the print popup
@@ -360,13 +361,14 @@ export default function AddStockPage() {
         >
           <div
             style={{
-              width: "2.2in",
-              height: "1.2in",
+              width: "2in",
+              height: "1in",
+              margin: "0.1in auto",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              padding: "0.05in 0.08in",
+              padding: "0.04in 0.06in",
               gap: "1px",
               background: "white",
               fontFamily: "Helvetica, Arial, sans-serif",
@@ -378,7 +380,7 @@ export default function AddStockPage() {
               </p>
             )}
             {barcodeSvgMarkup && (
-              <div style={{ maxWidth: "2in", textAlign: "center" }} dangerouslySetInnerHTML={{ __html: barcodeSvgMarkup }} />
+              <div style={{ maxWidth: "1.8in", textAlign: "center" }} dangerouslySetInnerHTML={{ __html: barcodeSvgMarkup }} />
             )}
             <p style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
               {successItem.category}
@@ -402,8 +404,8 @@ export default function AddStockPage() {
             )}
           </div>
           <div className="mb-4">
-            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2.2&quot; &times; 1.2&quot;)</p>
-            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2.2in", height: "1.2in" }}>
+            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; &times; 1&quot;)</p>
+            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1in" }}>
               <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
             </div>
           </div>
