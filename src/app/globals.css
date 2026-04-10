@@ -3,7 +3,7 @@
 /* ── Print support (safety-net for in-page window.print fallback) ── */
 @media print {
   @page {
-    size: 2in 1.2in;
+    size: 2.2in 1.2in;
     margin: 0;
   }
 

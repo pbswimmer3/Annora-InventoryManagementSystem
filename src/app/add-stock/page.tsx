@@ -28,13 +28,13 @@ function BarcodeLabel({
   return (
     <div
       style={{
-        width: "2in",
+        width: "2.2in",
         height: "1.2in",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "0.04in 0.08in",
+        padding: "0.05in 0.08in",
         boxSizing: "border-box",
         gap: "1px",
         background: "white",
@@ -86,21 +86,69 @@ function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
 }
 
 /**
- * Primary print method: open a clean popup window containing ONLY the label.
+ * Primary print method: generate a PDF at exact label dimensions and open it
+ * in a new tab. PDFs bypass Safari's print quirks — no headers/footers, no
+ * browser margins, and the page size is embedded in the PDF metadata.
  *
- * This avoids iPad Safari's PDF-viewer scaling issues entirely. The popup page
- * has no navigation, no form, nothing to interfere with AirPrint. The @page CSS
- * tells the browser the intended paper size, and the "Tap to Print" button lets
- * the user trigger AirPrint after the page has fully rendered.
- *
- * If the popup is blocked (unlikely in a synchronous click handler), we fall
- * back to window.print() from the current page using the @media-print rules
- * in globals.css.
+ * Content is inset slightly (0.05") from the page edges to stay within the
+ * printer's imageable area (hardware margins).
+ */
+function openLabelPDF(
+  item: InventoryItem,
+  jsPDFClass: typeof import("jspdf").jsPDF,
+  barcodeDataUrl: string | null,
+) {
+  const pw = 2.2;
+  const ph = 1.2;
+  const margin = 0.05; // inset to avoid hardware margin clipping
+  const doc = new jsPDFClass({ orientation: "landscape", unit: "in", format: [ph, pw] });
+
+  let y = margin + 0.08;
+  if (item.listPrice > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`$${item.listPrice.toFixed(2)}`, pw / 2, y, { align: "center" });
+    y += 0.16;
+  }
+
+  if (barcodeDataUrl) {
+    const barcodeW = pw - margin * 2 - 0.1; // ~2.0" wide
+    const barcodeH = 0.48;
+    const bx = (pw - barcodeW) / 2;
+    doc.addImage(barcodeDataUrl, "PNG", bx, y, barcodeW, barcodeH);
+    y += barcodeH + 0.03;
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.text(item.category, pw / 2, y, { align: "center" });
+  y += 0.08;
+
+  doc.setFont("courier", "normal");
+  doc.setFontSize(6);
+  const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
+  doc.text(idLine, pw / 2, y, { align: "center" });
+
+  // Open as blob URL in new tab — works reliably on iOS Safari
+  const pdfBlob = doc.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/**
+ * Fallback: open an HTML popup with only the label + a print button.
+ * Includes a back button. Note: Safari adds headers/footers to HTML prints
+ * and ignores @page size, so the PDF method above is preferred.
  */
 function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
   const w = window.open("", "_blank");
   if (!w) {
-    // Popup blocked — fall back to in-page print
     window.print();
     return;
   }
@@ -122,44 +170,26 @@ function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Print Label</title>
 <style>
-  @page{size:2in 1.2in;margin:0}
+  @page{size:2.2in 1.2in;margin:0}
   *{margin:0;padding:0;box-sizing:border-box}
-
-  /* ── Print layout: only the label, nothing else ── */
   @media print{
-    html,body{
-      width:2in;height:1.2in;overflow:hidden;
-      margin:0;padding:0;background:#fff;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact;
-    }
+    html,body{width:2.2in;height:1.2in;overflow:hidden;margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .screen-ui{display:none!important}
   }
-
-  /* ── Screen layout: label preview + buttons ── */
   .label{
-    width:2in;height:1.2in;
+    width:2.2in;height:1.2in;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:0.03in 0.06in;gap:1px;
+    padding:0.05in 0.08in;gap:1px;
     background:#fff;font-family:Helvetica,Arial,sans-serif;overflow:hidden;
   }
   .cat{font-size:7pt;text-align:center;line-height:1.1}
   .iid{font-family:'Courier New',monospace;font-size:6pt;text-align:center;line-height:1.1}
-
   .screen-ui{text-align:center;padding:24px;font-family:-apple-system,system-ui,sans-serif}
-  .label-border{display:inline-block;border:2px dashed #d1d5db;border-radius:8px;overflow:hidden;margin-top:12px}
-  .btn{
-    background:#d97706;color:#000;border:none;
-    padding:16px 40px;border-radius:14px;
-    font-size:22px;font-weight:bold;cursor:pointer;
-    margin:20px auto 0;display:block;
-    -webkit-tap-highlight-color:transparent;min-height:56px;
-  }
+  .btn{background:#d97706;color:#000;border:none;padding:16px 40px;border-radius:14px;font-size:22px;font-weight:bold;cursor:pointer;margin:12px auto 0;display:block;-webkit-tap-highlight-color:transparent;min-height:56px}
   .btn:active{background:#b45309}
-  .tips{
-    max-width:340px;margin:16px auto;padding:16px;
-    background:#fffbeb;border:1px solid #f59e0b;border-radius:12px;
-    font-size:15px;line-height:1.7;text-align:left;color:#92400e;
-  }
+  .back{background:#374151;color:#d1d5db;border:1px solid #4b5563;padding:12px 32px;border-radius:12px;font-size:16px;cursor:pointer;margin:8px auto 0;display:block;-webkit-tap-highlight-color:transparent}
+  .back:active{background:#1f2937}
+  .tips{max-width:340px;margin:16px auto;padding:16px;background:#fffbeb;border:1px solid #f59e0b;border-radius:12px;font-size:15px;line-height:1.7;text-align:left;color:#92400e}
   .tips b{color:#78350f}
 </style>
 </head>
@@ -167,11 +197,12 @@ function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
 <div class="label">${price}${barcode}<div class="cat">${category}</div><div class="iid">${idLine}</div></div>
 <div class="screen-ui">
   <button class="btn" onclick="window.print()">Tap to Print</button>
+  <button class="back" onclick="window.close()">Back</button>
   <div class="tips">
     <b>Printing tips:</b><br>
     1. Tap the button above<br>
     2. Select your label printer<br>
-    3. Set Paper Size to <b>2&quot; &times; 1.2&quot;</b><br>
+    3. Set Paper Size to <b>2.2&quot; &times; 1.2&quot;</b><br>
     4. Make sure scaling is at <b>100%</b> (no fit-to-page)<br>
     5. Print!
   </div>
@@ -179,49 +210,6 @@ function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
 </body>
 </html>`);
   w.document.close();
-}
-
-/**
- * Fallback: generate a PDF at exact label dimensions and download it.
- * The user can open the PDF from their Files app and print from there,
- * or use it on a desktop machine.
- */
-function downloadLabelPDF(
-  item: InventoryItem,
-  jsPDFClass: typeof import("jspdf").jsPDF,
-  barcodeDataUrl: string | null,
-) {
-  const pw = 2;
-  const ph = 1.2;
-  const doc = new jsPDFClass({ orientation: "landscape", unit: "in", format: [pw, ph] });
-
-  let y = 0.1;
-  if (item.listPrice > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(`$${item.listPrice.toFixed(2)}`, pw / 2, y, { align: "center" });
-    y += 0.16;
-  }
-
-  if (barcodeDataUrl) {
-    const barcodeW = 1.8;
-    const barcodeH = 0.48;
-    const bx = (pw - barcodeW) / 2;
-    doc.addImage(barcodeDataUrl, "PNG", bx, y, barcodeW, barcodeH);
-    y += barcodeH + 0.03;
-  }
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.text(item.category, pw / 2, y, { align: "center" });
-  y += 0.08;
-
-  doc.setFont("courier", "normal");
-  doc.setFontSize(6);
-  const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
-  doc.text(idLine, pw / 2, y, { align: "center" });
-
-  doc.save(`label-${item.itemId.split("-")[0]}.pdf`);
 }
 
 function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
@@ -458,13 +446,13 @@ export default function AddStockPage() {
         >
           <div
             style={{
-              width: "2in",
+              width: "2.2in",
               height: "1.2in",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              padding: "0.03in 0.06in",
+              padding: "0.05in 0.08in",
               gap: "1px",
               background: "white",
               fontFamily: "Helvetica, Arial, sans-serif",
@@ -500,27 +488,27 @@ export default function AddStockPage() {
             )}
           </div>
           <div className="mb-4">
-            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; &times; 1.2&quot;)</p>
-            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1.2in" }}>
+            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2.2&quot; &times; 1.2&quot;)</p>
+            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2.2in", height: "1.2in" }}>
               <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
             </div>
           </div>
           <div className="space-y-3 max-w-sm mx-auto">
             <button
-              onClick={() => printLabelPopup(successItem, barcodeDataUrl)}
-              disabled={!barcodeDataUrl}
-              className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50"
-            >
-              {barcodeDataUrl ? "Print Label" : "Loading..."}
-            </button>
-            <button
               onClick={() => {
-                if (jsPDFClass) downloadLabelPDF(successItem, jsPDFClass, barcodeDataUrl);
+                if (jsPDFClass) openLabelPDF(successItem, jsPDFClass, barcodeDataUrl);
               }}
               disabled={!jsPDFClass || !barcodeDataUrl}
+              className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50"
+            >
+              {jsPDFClass && barcodeDataUrl ? "Print Label (PDF)" : "Loading..."}
+            </button>
+            <button
+              onClick={() => printLabelPopup(successItem, barcodeDataUrl)}
+              disabled={!barcodeDataUrl}
               className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-3 rounded-xl min-h-[44px] text-base hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
-              Download PDF Instead
+              Print from Browser Instead
             </button>
             <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
               Add Another Item
