@@ -1,2 +1,29 @@
 @import "tailwindcss";
 
+/* ── Print support (safety-net for in-page window.print fallback) ── */
+@media print {
+  @page {
+    size: 2in 1.2in;
+    margin: 0;
+  }
+
+  .no-print,
+  .print-hide {
+    display: none !important;
+  }
+
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+

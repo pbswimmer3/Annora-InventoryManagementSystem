@@ -9,6 +9,15 @@ function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max) + "..." : str;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function BarcodeLabel({
   item,
   barcodeRef,
@@ -19,7 +28,7 @@ function BarcodeLabel({
   return (
     <div
       style={{
-        width: "2.2in",
+        width: "2in",
         height: "1.2in",
         display: "flex",
         flexDirection: "column",
@@ -32,15 +41,15 @@ function BarcodeLabel({
       }}
     >
       {item.listPrice > 0 && (
-        <p className="label-list-price" style={{ fontSize: "14pt", fontWeight: "bold", textAlign: "center", color: "black", lineHeight: 1, letterSpacing: "0.02em" }}>
+        <p style={{ fontSize: "14pt", fontWeight: "bold", textAlign: "center", color: "black", lineHeight: 1, letterSpacing: "0.02em" }}>
           ${item.listPrice.toFixed(2)}
         </p>
       )}
       <svg ref={barcodeRef} />
-      <p className="label-item-name" style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
+      <p style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
         {item.category}
       </p>
-      <p className="label-item-id" style={{ fontFamily: "monospace", fontSize: "6pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
+      <p style={{ fontFamily: "monospace", fontSize: "6pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
         {item.itemId.split('-')[0]}-{item.color}-{item.size}
       </p>
     </div>
@@ -77,59 +86,142 @@ function svgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
 }
 
 /**
- * Generate a PDF at exactly the label size and open it in a new tab.
- * iOS prints PDFs with NO headers / footers / pagination — solving all
- * the Safari AirPrint issues that CSS @page cannot fix.
+ * Primary print method: open a clean popup window containing ONLY the label.
+ *
+ * This avoids iPad Safari's PDF-viewer scaling issues entirely. The popup page
+ * has no navigation, no form, nothing to interfere with AirPrint. The @page CSS
+ * tells the browser the intended paper size, and the "Tap to Print" button lets
+ * the user trigger AirPrint after the page has fully rendered.
+ *
+ * If the popup is blocked (unlikely in a synchronous click handler), we fall
+ * back to window.print() from the current page using the @media-print rules
+ * in globals.css.
  */
+function printLabelPopup(item: InventoryItem, barcodeDataUrl: string | null) {
+  const w = window.open("", "_blank");
+  if (!w) {
+    // Popup blocked — fall back to in-page print
+    window.print();
+    return;
+  }
+
+  const price =
+    item.listPrice > 0
+      ? `<div style="font-size:14pt;font-weight:bold;text-align:center;line-height:1;letter-spacing:0.02em">$${item.listPrice.toFixed(2)}</div>`
+      : "";
+  const barcode = barcodeDataUrl
+    ? `<img src="${barcodeDataUrl}" style="max-width:1.8in;height:auto;display:block" alt="barcode">`
+    : "";
+  const category = escapeHtml(item.category);
+  const idLine = `${escapeHtml(item.itemId.split("-")[0])}-${escapeHtml(item.color)}-${escapeHtml(item.size)}`;
+
+  w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Print Label</title>
+<style>
+  @page{size:2in 1.2in;margin:0}
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  /* ── Print layout: only the label, nothing else ── */
+  @media print{
+    html,body{
+      width:2in;height:1.2in;overflow:hidden;
+      margin:0;padding:0;background:#fff;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
+    }
+    .screen-ui{display:none!important}
+  }
+
+  /* ── Screen layout: label preview + buttons ── */
+  .label{
+    width:2in;height:1.2in;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:0.03in 0.06in;gap:1px;
+    background:#fff;font-family:Helvetica,Arial,sans-serif;overflow:hidden;
+  }
+  .cat{font-size:7pt;text-align:center;line-height:1.1}
+  .iid{font-family:'Courier New',monospace;font-size:6pt;text-align:center;line-height:1.1}
+
+  .screen-ui{text-align:center;padding:24px;font-family:-apple-system,system-ui,sans-serif}
+  .label-border{display:inline-block;border:2px dashed #d1d5db;border-radius:8px;overflow:hidden;margin-top:12px}
+  .btn{
+    background:#d97706;color:#000;border:none;
+    padding:16px 40px;border-radius:14px;
+    font-size:22px;font-weight:bold;cursor:pointer;
+    margin:20px auto 0;display:block;
+    -webkit-tap-highlight-color:transparent;min-height:56px;
+  }
+  .btn:active{background:#b45309}
+  .tips{
+    max-width:340px;margin:16px auto;padding:16px;
+    background:#fffbeb;border:1px solid #f59e0b;border-radius:12px;
+    font-size:15px;line-height:1.7;text-align:left;color:#92400e;
+  }
+  .tips b{color:#78350f}
+</style>
+</head>
+<body>
+<div class="label">${price}${barcode}<div class="cat">${category}</div><div class="iid">${idLine}</div></div>
+<div class="screen-ui">
+  <button class="btn" onclick="window.print()">Tap to Print</button>
+  <div class="tips">
+    <b>Printing tips:</b><br>
+    1. Tap the button above<br>
+    2. Select your label printer<br>
+    3. Set Paper Size to <b>2&quot; &times; 1.2&quot;</b><br>
+    4. Make sure scaling is at <b>100%</b> (no fit-to-page)<br>
+    5. Print!
+  </div>
+</div>
+</body>
+</html>`);
+  w.document.close();
+}
+
 /**
- * Build the label PDF synchronously using pre-loaded jsPDF and barcode image.
- * Must be synchronous so iOS Safari doesn't block it as a popup.
+ * Fallback: generate a PDF at exact label dimensions and download it.
+ * The user can open the PDF from their Files app and print from there,
+ * or use it on a desktop machine.
  */
-function buildAndSaveLabel(
+function downloadLabelPDF(
   item: InventoryItem,
   jsPDFClass: typeof import("jspdf").jsPDF,
   barcodeDataUrl: string | null,
 ) {
-  const pw = 2.2;
+  const pw = 2;
   const ph = 1.2;
-  const doc = new jsPDFClass({ orientation: "landscape", unit: "in", format: [ph, pw] });
+  const doc = new jsPDFClass({ orientation: "landscape", unit: "in", format: [pw, ph] });
 
-  let y = 0.12;
+  let y = 0.1;
   if (item.listPrice > 0) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.text(`$${item.listPrice.toFixed(2)}`, pw / 2, y, { align: "center" });
-    y += 0.17;
+    y += 0.16;
   }
 
   if (barcodeDataUrl) {
-    const barcodeW = 1.9;
-    const barcodeH = 0.5;
+    const barcodeW = 1.8;
+    const barcodeH = 0.48;
     const bx = (pw - barcodeW) / 2;
     doc.addImage(barcodeDataUrl, "PNG", bx, y, barcodeW, barcodeH);
-    y += barcodeH + 0.04;
+    y += barcodeH + 0.03;
   }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.text(item.category, pw / 2, y, { align: "center" });
-  y += 0.09;
+  y += 0.08;
 
   doc.setFont("courier", "normal");
   doc.setFontSize(6);
   const idLine = `${item.itemId.split("-")[0]}-${item.color}-${item.size}`;
   doc.text(idLine, pw / 2, y, { align: "center" });
 
-  const pdfBlob = doc.output("blob");
-  const url = URL.createObjectURL(pdfBlob);
-  // Use a temporary <a> tag click — synchronous, so iOS allows it
-  const a = document.createElement("a");
-  a.href = url;
-  a.target = "_blank";
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  doc.save(`label-${item.itemId.split("-")[0]}.pdf`);
 }
 
 function ItemPhoto({ url, size = "h-20 w-20" }: { url: string; size?: string }) {
@@ -352,35 +444,88 @@ export default function AddStockPage() {
   if (successItem) {
     return (
       <div className="text-center py-8">
-        <div className="bg-green-950/40 border border-green-800 rounded-2xl p-8 max-w-sm mx-auto mb-6">
-          <p className="text-4xl mb-2">&#10003;</p>
-          <h2 className="text-2xl font-bold text-green-400 mb-1">Item Added!</h2>
-          <p className="text-green-300">{successItem.name}</p>
-          {successItem.photoUrl && (
-            <div className="mt-3 flex justify-center">
-              <ItemPhoto url={successItem.photoUrl} size="h-24 w-24" />
-            </div>
-          )}
-        </div>
-        <div className="mb-4">
-          <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2.2&quot; x 1.2&quot;)</p>
-          <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2.2in", height: "1.2in" }}>
-            <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
+        {/* ── Print-only zone: rendered by @media print from globals.css ── */}
+        <div
+          id="print-label-zone"
+          style={{
+            position: "absolute",
+            width: "1px",
+            height: "1px",
+            overflow: "hidden",
+            clip: "rect(0,0,0,0)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <div
+            style={{
+              width: "2in",
+              height: "1.2in",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0.03in 0.06in",
+              gap: "1px",
+              background: "white",
+              fontFamily: "Helvetica, Arial, sans-serif",
+            }}
+          >
+            {successItem.listPrice > 0 && (
+              <p style={{ fontSize: "14pt", fontWeight: "bold", textAlign: "center", color: "black", lineHeight: 1 }}>
+                ${successItem.listPrice.toFixed(2)}
+              </p>
+            )}
+            {barcodeDataUrl && (
+              <img src={barcodeDataUrl} alt="barcode" style={{ maxWidth: "1.8in", height: "auto" }} />
+            )}
+            <p style={{ fontSize: "7pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
+              {successItem.category}
+            </p>
+            <p style={{ fontFamily: "monospace", fontSize: "6pt", textAlign: "center", lineHeight: 1.1, color: "black" }}>
+              {successItem.itemId.split("-")[0]}-{successItem.color}-{successItem.size}
+            </p>
           </div>
         </div>
-        <div className="space-y-3 max-w-sm mx-auto">
-          <button
-            onClick={() => {
-              if (jsPDFClass) buildAndSaveLabel(successItem, jsPDFClass, barcodeDataUrl);
-            }}
-            disabled={!jsPDFClass}
-            className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50"
-          >
-            {jsPDFClass ? "Print Label" : "Loading..."}
-          </button>
-          <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
-            Add Another Item
-          </button>
+
+        {/* ── Screen UI (hidden during print) ── */}
+        <div className="print-hide">
+          <div className="bg-green-950/40 border border-green-800 rounded-2xl p-8 max-w-sm mx-auto mb-6">
+            <p className="text-4xl mb-2">&#10003;</p>
+            <h2 className="text-2xl font-bold text-green-400 mb-1">Item Added!</h2>
+            <p className="text-green-300">{successItem.name}</p>
+            {successItem.photoUrl && (
+              <div className="mt-3 flex justify-center">
+                <ItemPhoto url={successItem.photoUrl} size="h-24 w-24" />
+              </div>
+            )}
+          </div>
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 mb-2">Print Preview (actual size: 2&quot; &times; 1.2&quot;)</p>
+            <div className="inline-block border-2 border-dashed border-gray-600 rounded bg-white overflow-hidden" style={{ width: "2in", height: "1.2in" }}>
+              <BarcodeLabel item={successItem} barcodeRef={previewBarcodeRef} />
+            </div>
+          </div>
+          <div className="space-y-3 max-w-sm mx-auto">
+            <button
+              onClick={() => printLabelPopup(successItem, barcodeDataUrl)}
+              disabled={!barcodeDataUrl}
+              className="block w-full bg-amber-600 hover:bg-amber-500 text-black px-6 py-4 rounded-xl min-h-[56px] text-xl font-bold shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50"
+            >
+              {barcodeDataUrl ? "Print Label" : "Loading..."}
+            </button>
+            <button
+              onClick={() => {
+                if (jsPDFClass) downloadLabelPDF(successItem, jsPDFClass, barcodeDataUrl);
+              }}
+              disabled={!jsPDFClass || !barcodeDataUrl}
+              className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-3 rounded-xl min-h-[44px] text-base hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              Download PDF Instead
+            </button>
+            <button onClick={() => setSuccessItem(null)} className="block w-full bg-gray-800 text-gray-300 border border-gray-700 px-6 py-4 rounded-xl min-h-[44px] text-lg hover:bg-gray-700 transition-colors">
+              Add Another Item
+            </button>
+          </div>
         </div>
       </div>
     );
