@@ -114,6 +114,8 @@ export default function CheckoutPage() {
     const previousQuantity = item.quantity;
 
     setSellTarget(null);
+    setSearch("");
+    setTimeout(() => { searchRef.current?.focus(); }, 0);
     if (undo) clearTimeout(undo.timer);
 
     // Optimistic update
